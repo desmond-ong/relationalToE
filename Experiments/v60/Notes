@@ -1,0 +1,29 @@
+Notes
+
+e.g. SpinnerID_1: A, SpinnerID_2: B
+
+leftWheelFirst==1:
+	A drawn on Left, B drawn on Right
+	Asked about Left wheel First [spinner A]
+	Chronologically-first data [Left Wheel, A] goes into emotion1array
+
+
+	A == asked first
+	B == asked second
+	emotion1array == LEFT wheel: A
+	emotion2array == RIGHT wheel: B
+	spinnerID_1: matched with emotion1array
+	spinnerID_2: matched with emotion2array
+	
+
+
+leftWheelFirst==0:
+	B drawn on Left, A drawn on Right
+	Asked about Right wheel First [spinner A]
+	Chronologically-first data [Right Wheel, A] goes into emotion2array
+
+	A == asked first
+	B == asked second
+	emotion1array == LEFT wheel: B
+	emotion2array == RIGHT wheel: A
+
