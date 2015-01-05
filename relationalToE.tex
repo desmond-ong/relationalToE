@@ -1,0 +1,136 @@
+% 
+% Annual Cognitive Science Conference
+% Sample LaTeX Paper -- Proceedings Format
+% 
+
+% Original : Ashwin Ram (ashwin@cc.gatech.edu)       04/01/1994
+% Modified : Johanna Moore (jmoore@cs.pitt.edu)      03/17/1995
+% Modified : David Noelle (noelle@ucsd.edu)          03/15/1996
+% Modified : Pat Langley (langley@cs.stanford.edu)   01/26/1997
+% Latex2e corrections by Ramin Charles Nakisa        01/28/1997 
+% Modified : Tina Eliassi-Rad (eliassi@cs.wisc.edu)  01/31/1998
+% Modified : Trisha Yannuzzi (trisha@ircs.upenn.edu) 12/28/1999 (in process)
+% Modified : Mary Ellen Foster (M.E.Foster@ed.ac.uk) 12/11/2000
+% Modified : Ken Forbus                              01/23/2004
+% Modified : Eli M. Silk (esilk@pitt.edu)            05/24/2005
+% Modified: Niels Taatgen (taatgen@cmu.edu)  10/24/2006
+
+%% Change ``a4paper'' in the following line to ``letterpaper'' if you are
+%% producing a letter-format document.
+
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage{cogsci}
+\usepackage{pslatex}
+\usepackage{apacite}
+
+
+\title{ XXX Title }
+ 
+\author{{\large \bf Desmond C. Ong (dco@stanford.edu)} \\
+{\large \bf Jamil Zaki (jzaki@stanford.edu)} \\
+{\large \bf Noah D. Goodman (ngoodman@stanford.edu)} \\
+  Department of Psychology, Stanford University, Stanford CA, USA 
+}
+
+
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+abstract text
+
+\textbf{Keywords:} 
+Affective cognition; Emotions; Social cognition; Computational Modeling
+\end{abstract}
+
+
+%you could say that there's simple ``bob feels E" and relational ``bob feels E about X" type emotion attributions, where E is an emotion and X is an event. there are two questions to address: what is the relation between the two types of attribution, and what is the relation between two relational ones, depending on the relation between the events.
+
+
+In our daily lives, we constantly interact with others around us, and invariably have to reason about others' emotional states. There are two classes of intuitive attributions than observers often make, the first being simple emotional state attributions -- ``Bob feels happy (in general)". The second class of emotional state attributions are relational in nature: ``Bob feels happy about X", where X can be an event like ``receiving a promotion" or ``seeing his children". 
+
+	Relational attributions are justifiable according to some lay causal theory. Intuitively, emotions must be ``caused" by some event in the world, and 
+
+
+Observers have a lay theory that something Lay observers often attribute emotions 
+	Indeed, affective and cognitive scientists have debated for decades over whether 
+
+
+
+1) what is the relation between the two types of attribution, 
+
+2) what is the relation between two relational ones, depending on the relation between the events.
+
+
+
+recency: maybe show decay?
+
+1) Ps can separate emotions attributed to event X and Y. i.e. emotionX depends very little on Y.
+
+2) temporal order: if X happened, then Y happened, Y matters more to overall emotion
+
+3) evidence order: recency in Ps judgments. The attribution that the participant most recently gave is weighed more.
+
+
+do a multilevel analysis to see if maybe some participants are sensitive to both; some are not.? maybe accounted for 
+
+
+result: even though there's no cross-talk, the mere existence of the second event removes loss aversion
+
+result: in judging mood across multiple events, people expect no loss aversion.
+
+result: presentation order matters!
+
+H1: Mood = average
+H2: Mood = time-weighted average (more recent events matter more)
+
+relate context
+with elemental relational attributions
+and overall mood attributions
+
+revisit analysis based on hypotheses of these components
+
+look at a "first-half, last-half" analysis. It's a somewhat hard experiment, maybe Ss are getting tired or bored.
+
+sanity check: how much did he win overall?
+
+---
+
+8am vs noon
+10am vs noon
+
+crossed with
+
+ask about mood at 2pm
+ask about mood at 4pm
+
+----
+
+When human observers attribute emotions to others, they are often doing so with respect to 
+
+
+
+Social life constantly requires us to decipher information about others into inferences about their emotional states: for example, we have to reason about what makes our romantic partners happy (a surprise gift?) or angry (not doing one's chores?), and what they would do in those emotional states, in order to plan our upcoming interactions. Such \textit{affective cognition}, or our ability to reason about others' emotions, scaffolds everything from cooperation to the maintenance of social relationships. Affective cognition lies in the intersection of two foundational social cognitive topics, Theory of Mind (ToM; the ability to reason about others' mental states) and Empathy (the ability to feel and understand others' emotions). Although the past decade has seen much progress in understanding ToM and empathy using neuroscience \cite{Koster-Hale2013, Zaki2012}, developmental \cite{Meltzoff2011}, and computational \cite{Baker2009, Goodman2013} approaches, somewhat less attention has been paid specifically to affective cognition and some of its foundational cognitive questions. How do we represent (cognitively and neurally) others' emotional states? How do we reason with those representations? How do we make predictions and inferences about others' future actions or desires based on their emotions? Finally, how does affective cognition shift across development? The aim of the symposium is to answer these, and other relevant questions, at the forefront of this field.
+
+
+Humans are extremely skilled at reasoning about others’ emotions; this ability is crucially important to forming and maintaining social relationships. Yet despite its importance, few formal or quantitative theories have successfully described how affective cognition operates. Here we address this gap by constructing a computational model, drawing on tools from Bayesian statistics. We use a simple gambling paradigm to quantitatively test this model, finding that emotion judgments are well explained in terms of a low-dimensional representation based on value-related computations. Further, we demonstrate that emotion inferences across multiple situations are tightly predicted by Bayes’ rule. Our results speak to a deep structural relationship between emotions and cognitive inference, and suggest wide-ranging applications to basic psychological theory and psychiatry.
+
+
+
+\section{Acknowledgments}
+
+This work was supported by a James S. McDonnell Foundation Scholar Award to NDG.
+
+
+\bibliographystyle{apacite}
+
+\setlength{\bibleftmargin}{.125in}
+\setlength{\bibindent}{-\bibleftmargin}
+
+\bibliography{relationalToE}
+
+
+\end{document}
