@@ -27,13 +27,16 @@
 \usepackage{amsmath}
 \usepackage{mathrsfs}
 \usepackage{graphicx}
+\usepackage{amsthm}
 
+\newtheorem{Definition}{Definition}
 
 \title{ XXX Title }
  
-\author{{\large \bf Desmond C. Ong (dco@stanford.edu)} \\
-{\large \bf Jamil Zaki (jzaki@stanford.edu)} \\
-{\large \bf Noah D. Goodman (ngoodman@stanford.edu)} \\
+\author{{\large \bf Desmond C. Ong}, 
+{\large \bf Jamil Zaki}, 
+{\large \bf Noah D. Goodman} \\
+\texttt{\{dco, jzaki, ngoodman\}@stanford.edu} \\
   Department of Psychology, Stanford University, Stanford CA, USA 
 }
 
@@ -63,27 +66,36 @@ Observers have a lay theory that something Lay observers often attribute emotion
 	Indeed, affective and cognitive scientists have debated for decades over whether 
 
 
-Lay theory:
-Emotion attribution is a function $E$ that takes the agent $A$, the event $X$, and returns a real-valued number. That is, $E(A,X)$ returns the emotions attributed to agent $A$ following event $X$.
+%How does an observer infer that agents (the targets of affective cognition) who spill a cup of coffee, miss the bus, or fall off a bicycle, likely feel similar emotions, such as sadness? One problem that any model of affective cognition must deal with is the combinatorial explosion of outcomes and emotional states that people can experience. It would be both inefficient and impractical for observers to store or retrieve knowledge about the likely affective consequences of every possible situation. We hypothesize that people circumvent this complexity by evaluating situations based on a smaller number of “active psychological ingredients” those situations contain. For instance, many emotion-inducing situations share key common features (e.g., the attainment or nonattainment of goals) that consistently produce particular emotions (Barrett, Mesquita, Ochsner, & Gross, 2007; Ellsworth & Scherer, 2003). An individual in a situation can take advantage of this commonality by appraising the situation along a small number of relevant appraisal dimensions: that is, reducing a situation to a low-dimensional set of emotion-relevant features (Ortony, Clore, & Collins, 1988; Schachter & Singer, 1962; Scherer, Schorr, & Johnstone, 2001; Smith & Lazarus, 1993). 
+
+
+
+\begin{Definition}
+Relational Emotion Attribution is a function $E_R$ that takes the agent $A$ and the event $X$, and returns real-valued numbers corresponding to the intensity of $A$'s emotions. $E_R(A,X)$ returns the emotions attributed to agent $A$ following event $X$.
+\end{Definition}
+
+\begin{Definition}
+Simple Emotion Attribution is a function $E_S$ that takes only the agent $A$ and returns real-valued numbers corresponding to the intensity of $A$'s emotions. $E_S(A)$ returns the current emotions attributed to agent $A$.
+\end{Definition}
+
 
 \begin{itemize}
-\item Question 1: What is the relation between two relational attributions? Given events $X$ and $Y$ that occur to an agent $A$, how does an observer compute $E(A,X)$ and $E(A,Y)$: do they depend on each other?
-\item Question 2: What is the relation between relational and simple emotion attribution. That is, how does $E(A)$ depend on $E(A,X)$ and $E(A,Y)$.
+\item Question 1: What is the relation between two relational attributions? Given events $X$ and $Y$ that occur to an agent $A$, how does an observer compute $E_R(A,X)$ and $E_R(A,Y)$: do they depend on each other?
+\item Question 2: What is the relation between relational and simple emotion attribution. That is, how does $E_S(A)$ depend on $E_R(A,X)$ and $E_R(A,Y)$.
 \end{itemize}
 
 
 
 Results:
 \begin{itemize}
-\item No Crosstalk: Ps can separate emotions attributed to event X and Y. i.e. $E(A,X)$ is independent of $Y$.
+\item No Crosstalk: Ps can separate emotions attributed to event X and Y. i.e. $E_R(A,X)$ is independent of $Y$.
 \item Effect of expectations. Even though there's no cross-talk, the mere existence of the second event affects the features of X (removes loss aversion). The existence of $Y$ qualitatively changes $\mathscr{F}(X)$.
 \item No Loss Aversion. In judging emotions across multiple events, people expect no loss aversion.
-\item Temporal order matters. Participants' lay theories are sensitive to the temporal ordering of events: if $X$ happened, then $Y$ happened, $Y$ matters more to overall emotion $E(A)$.
-\item Evidence presentation order matters (recency effect). The order in which participants make attributions also affects: if they first make an attribution to a temporally later event $Y$ then to a temporally earlier event $X$, their judgments about overall emotion $E(A)$ would not favor the later event $Y$. The attribution that the participant most recently gave is weighed more.
+\item Temporal order matters. Participants' lay theories are sensitive to the temporal ordering of events: if $X$ happened, then $Y$ happened, $Y$ matters more to overall emotion $E_S(A)$.
+\item Evidence presentation order matters (recency effect). The order in which participants make attributions also affects: if they first make an attribution to a temporally later event $Y$ then to a temporally earlier event $X$, their judgments about overall emotion $E_S(A)$ would not favor the later event $Y$. The attribution that the participant most recently gave is weighed more.
 
 \end{itemize}
 
-recency: maybe show decay?
 
 
 do a multilevel analysis to see if maybe some participants are sensitive to both; some are not.? maybe accounted for 
@@ -104,6 +116,7 @@ look at a "first-half, last-half" analysis. It's a somewhat hard experiment, may
 sanity check: how much did he win overall?
 
 ---
+recency: maybe show decay?
 
 8am vs noon
 10am vs noon
@@ -124,10 +137,10 @@ ask about mood at 4pm
 \subsection{Basic Paradigm Description}
 The basic experimental paradigm across all experiments described in this paper involves watching a character play a spinning wheel. The characters spun wheels and ostensibly won an amount of money depending on where each wheel landed (Fig. \ref{ParadigmFig}). Each wheel comprised three possible outcomes, all of which were non-negative. We systematically de-correlated the probabilities of the outcomes and the values of the outcomes of each wheel, allowing for separate calculation of reward amount and expected value (the probability-weighted averaged reward). 
 
-% fix this citation
-In our previous work (Ong, Zaki, \& Goodman, under review), we analyzed how the parameters of a single situation $X$ affect participant judgments of emotions to an agent $A$, or $E(A,X)$. That is, what are the features of the situation $X$, $\mathscr{F}(X)$, that reliably predict $E(A,X)$. We identified three predictors that consistently and significantly predicted all the emotions we measured: the amount won (win($X$)), the prediction error (PE($X$) = amount won - expected value of $X$), and the absolute value of the prediction error (absPE($X$)). The first two are naturally predicted from standard utility theory. The third predictor indicates that participants' sensitivity to negative prediction errors were stronger than to positive prediction errors, indicating a measurable indicator of \textit{loss aversion} (cites).\footnote{The PE, absPE formulation is mathematically equivalent to the more common, piecewise formulation of loss aversion: $y=a PE, PE \geq 0$ and $y=b PE, PE < 0$. In our model, we require just one equation across the whole domain, $y=c PE + d |PE|$. We can easily show that $a = c + d$, and $b = c – d$.} Using the formulation we had above, we built a regression model to predict emotion attribution following an event $X$: 
+% XXX TODO fix this citation
+In our previous work (Ong, Zaki, \& Goodman, under review), we analyzed how the parameters of a single situation $X$ affect participant judgments of emotions to an agent $A$, or $E_R(A,X)$. That is, what are the features of the situation $X$, $\mathscr{F}(X)$, that reliably predict $E_R(A,X)$. We identified three predictors that consistently and significantly predicted all the emotions we measured: the amount won (win($X$)), the prediction error (PE($X$) = amount won - expected value of $X$), and the absolute value of the prediction error (absPE($X$)). The first two are naturally predicted from standard utility theory. The third predictor indicates that participants' sensitivity to negative prediction errors were stronger than to positive prediction errors, indicating a measurable indicator of \textit{loss aversion} (cites).\footnote{The PE, absPE formulation is mathematically equivalent to the more common, piecewise formulation of loss aversion: $y=a PE, PE \geq 0$ and $y=b PE, PE < 0$. In our model, we require just one equation across the whole domain, $y=c PE + d |PE|$. We can easily show that $a = c + d$, and $b = c – d$.} Using the formulation we had above, we built a regression model to predict emotion attribution following an event $X$: 
 \begin{align}
-E(A,X) &= E(A,\mathscr{F}(X)) \nonumber \\
+E_R(A,X) &= E_R(A,\mathscr{F}(X)) \nonumber \\
 &= b_0 + b_1 \text{win}(X) + b_2 \text{PE}(X) + b_3 \text{absPE}(X) + \epsilon
 \end{align}
 Thus, we had a predefined analysis plan for analyzing the experiments in this paper.
@@ -135,9 +148,11 @@ Thus, we had a predefined analysis plan for analyzing the experiments in this pa
 
 
 \subsection{Experiment 1}
-\subsubsection{Participants.} We recruited XXX hundred participants through Amazon’s Mechanical Turk and paid them for completing the experiment. All experiments reported in this paper were conducted according to guidelines approved by the Institutional Review Board at Stanford University.
+In Experiment 1, participants made attributions of emotion to a character following two separate events, followed by an overall attribution.
 
-\subsubsection{Procedures.} Participants played the role of observers and watched characters play a simple gambling game, described above (see Fig. \ref{ParadigmFig}). On each trial, each character played 2 wheels. The wheels were spun consecutively. After each wheel, participants gave ratings of how the character feels, using six different Likert scales, for each of six different emotions: happiness, sadness, contentment, disappointment, relief and regret. After they gave ratings to the second wheel, they were asked for an overall judgment of the character's emotions. Thus, on each trial, participants had to make 3 emotion attributions: one after the result of each wheel, and one overall. Each participant completed 5 trials.
+\subsubsection{Participants.} We recruited 150 participants through Amazon's Mechanical Turk and paid them for completing the experiment. All experiments reported in this paper were conducted according to guidelines approved by the Institutional Review Board at Stanford University.
+
+\subsubsection{Procedures.} Participants played the role of observers and watched characters play a simple gambling game, described above (see Fig. \ref{ParadigmFig}). On each trial, each character played 2 wheels, spun consecutively. The order of the wheels, left-then-right or right-then-left, was randomized across trials. After the outcome of each wheel, participants gave ratings of how the character feels, using six different Likert scales, for each of six different emotions: happiness, sadness, contentment, disappointment, relief and regret. After they gave ratings to the second wheel, they then gave an overall judgment of the character's emotions. Thus, on each trial, participants made three emotion attributions: one after the result of each wheel, and one overall. Each participant completed 5 trials.
 
 
 %We pre-generated a total of 50 scenarios, where each scenario corresponds to a particular outcome on a particular wheel. On each trial, the experimental program selected the scenario (the particular outcome to be won) randomly from the total set of 50 scenarios, and not proportional to the sector size within a wheel . This was a design choice to ensure that small sectors (with low notational probability) were equally represented in the data. This fact was not obvious to the participants, and we assume that participants treated the wheel as being fairly spun. The exact position within the sector where the spinner lands—for example, whether the spinner lands in the center of the sector, or near the edge of the sector, as in the example shown in Figure 3—was drawn from a uniform distribution.
@@ -149,8 +164,25 @@ Thus, we had a predefined analysis plan for analyzing the experiments in this pa
 \label{ParadigmFig}
 \end{figure}
 
+\begin{figure}[htb!]
+\includegraphics[width=\columnwidth]{images/paradigmFig2.png}
+\caption{Dependent measures for Experiments 1 and 2. Participants gave emotion attributions along six emotions, 1) following each wheel, and 2) overall.}
+\label{ParadigmFig2}
+\end{figure}
+
 \subsubsection{Results.}
 
+\begin{figure}[htb!]
+\includegraphics[width=\columnwidth]{images/Expt1Coefficients.png}
+\caption{ Caption }
+\label{Expt1Results1}
+\end{figure}
+
+\begin{figure}[htb!]
+\includegraphics[width=\columnwidth]{images/Expt1OverallEmotion.png}
+\caption{ Caption }
+\label{Expt1Results2}
+\end{figure}
 
 
 
@@ -158,6 +190,27 @@ Thus, we had a predefined analysis plan for analyzing the experiments in this pa
 
 
 
+\subsection{Experiment 2}
+
+In Experiment 1, participants saw the two events X and Y in the temporal order in which they occurred (event X occurred, then event Y; participants rated event X, then event Y). Thus, the results we find in Experiment 1 could be due either to the fact that 1) participants are sensitive to the fact that agents would react stronger to more recent events (\textit{agent-recency}), or 2) participants are more affected by the order of judgments they gave (\textit{observer-recency}), or both. Experiment 2 seeks to investigate these two recency effects by dissociating the temporal order of the events with the evidence order presented to the observers.
+
+\subsubsection{Participants.} We recruited 150 participants through Amazon's Mechanical Turk and randomly assigned them into a \textit{Congruent} (N=79) or \textit{Incongruent} (N=71) condition.
+
+\subsubsection{Procedures.} 
+The procedure is similar to Experiment 1, except that the stick figure character played one wheel at 10am (the temporally-earlier wheel), and one wheel at 2pm (the temporally-later wheel). In the \textit{Congruent} condition, participants first saw the character spin the 10am wheel, then the 2pm wheel. In the \textit{Incongruent} condition, participants first saw the 2pm wheel, then the 10am wheel. In both conditions, similar to Expt 1, they made attributions following each wheel, and then made an overall attribution (``How does A feel overall immediately after the 2pm spin?").
+
+
+\begin{figure}[htb!]
+\includegraphics[width=\columnwidth]{images/paradigmFig3.png}
+\caption{Screenshot of Experiment 2. The two wheels were ostensibly spun at different times, and the order in which they are presented different across conditions.}
+\label{ParadigmFig3}
+\end{figure}
+
+
+
+\subsubsection{Results.}
+
+Evidence for both agent-recency and observer-recency
 
 %When human observers attribute emotions to others, they are often doing so with respect to 
 %
@@ -170,9 +223,11 @@ Thus, we had a predefined analysis plan for analyzing the experiments in this pa
 
 
 
+\section{Discussion}
+
 \section{Acknowledgments}
 
-This work was supported by a James S. McDonnell Foundation Scholar Award to NDG.
+This work was supported in part by an A*STAR National Science Scholarship to DCO and by a James S. McDonnell Foundation Scholar Award to NDG.
 
 
 \bibliographystyle{apacite}
