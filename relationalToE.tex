@@ -56,7 +56,7 @@
 %% End sub numbering hypotheses
 
 
-\title{ XXX Title }
+\title{ A relational lay theory of emotion: \\ Making and integrating multiple emotion attributions }
  
 \author{{\large \bf Desmond C. Ong}, 
 {\large \bf Jamil Zaki}, 
@@ -78,20 +78,21 @@ abstract text
 Affective cognition; Emotions; Social cognition; Computational Modeling
 \end{abstract}
 
+Intro
 
 %you could say that there's simple ``bob feels E" and relational ``bob feels E about X" type emotion attributions, where E is an emotion and X is an event. there are two questions to address: what is the relation between the two types of attribution, and what is the relation between two relational ones, depending on the relation between the events.
 
 
-In our daily lives, we constantly interact with others around us, and invariably have to reason about others' emotional states. 
-
-
-There are two classes of intuitive attributions than observers often make, the first being simple emotional state attributions -- ``Bob feels happy (in general)". Some affective scientists might point out that in the absence of  The second class of emotional state attributions are relational in nature: ``Bob feels happy about X", where X can be an event like ``receiving a promotion" or ``seeing his children". 
-
-	Relational attributions are justifiable according to some lay causal theory. Intuitively, emotions must be ``caused" by some event in the world, and 
-
-
-Observers have a lay theory that something Lay observers often attribute emotions 
-	Indeed, affective and cognitive scientists have debated for decades over whether 
+%In our daily lives, we constantly interact with others around us, and invariably have to reason about others' emotional states. 
+%
+%
+%There are two classes of intuitive attributions than observers often make, the first being simple emotional state attributions -- ``Bob feels happy (in general)". Some affective scientists might point out that in the absence of  The second class of emotional state attributions are relational in nature: ``Bob feels happy about X", where X can be an event like ``receiving a promotion" or ``seeing his children". 
+%
+%	Relational attributions are justifiable according to some lay causal theory. Intuitively, emotions must be ``caused" by some event in the world, and 
+%
+%
+%Observers have a lay theory that something Lay observers often attribute emotions 
+%	Indeed, affective and cognitive scientists have debated for decades over whether 
 
 
 %How does an observer infer that agents (the targets of affective cognition) who spill a cup of coffee, miss the bus, or fall off a bicycle, likely feel similar emotions, such as sadness? One problem that any model of affective cognition must deal with is the combinatorial explosion of outcomes and emotional states that people can experience. It would be both inefficient and impractical for observers to store or retrieve knowledge about the likely affective consequences of every possible situation. We hypothesize that people circumvent this complexity by evaluating situations based on a smaller number of Òactive psychological ingredientsÓ those situations contain. For instance, many emotion-inducing situations share key common features (e.g., the attainment or nonattainment of goals) that consistently produce particular emotions (Barrett, Mesquita, Ochsner, & Gross, 2007; Ellsworth & Scherer, 2003). An individual in a situation can take advantage of this commonality by appraising the situation along a small number of relevant appraisal dimensions: that is, reducing a situation to a low-dimensional set of emotion-relevant features (Ortony, Clore, & Collins, 1988; Schachter & Singer, 1962; Scherer, Schorr, & Johnstone, 2001; Smith & Lazarus, 1993). 
@@ -138,7 +139,8 @@ Simple Emotion Attribution is a function $E_S$ that takes only the agent $A$ and
 
 
 
-Results:
+\section{Results:}
+
 \begin{itemize}
 \item No Crosstalk: Ps can separate emotions attributed to event X and Y. i.e. $E_R(A,X)$ is independent of $Y$.
 \item Effect of expectations. Even though there's no cross-talk, the mere existence of the second event affects the features of X (removes loss aversion). The existence of $Y$ qualitatively changes $\mathscr{F}(X)$.
@@ -231,9 +233,14 @@ E_R(A; (X,Y)) &= b_0 + b_1 \text{win}(X) + b_2 \text{PE}(X) + b_3 \text{absPE}(X
 &\qquad +  b_4 \text{win}(Y) + b_5 \text{PE}(Y) + b_6 \text{absPE}(Y) + \epsilon  \nonumber
 \end{align}
 
-Hypothesis \ref{Hypothesis:NoCrossTalk} (``Independence") would predict that when Eqn. \ref{RelationalEmotionModel} is used to predict $E_R(A,X)$, the coefficients $\{b_4,b_5,b_6\}$ should be close to 0 (and conversely, the coefficients $\{b_1,b_2,b_3\}$ should be 0 when predicting $E_R(A,Y)$). In contrast, Hypothesis \ref{Hypothesis:CrossTalk} (``"No Independence") would predict that those coefficients will be non-zero.
+Hypothesis \ref{Hypothesis:NoCrossTalk} (``Independence") would predict that when Eqn. \ref{RelationalEmotionModel} is used to predict $E_R(A,X)$, the coefficients $\{b_4,b_5,b_6\}$ should be close to 0 (and conversely, the coefficients $\{b_1,b_2,b_3\}$ should be 0 when predicting $E_R(A,Y)$). In contrast, Hypothesis \ref{Hypothesis:CrossTalk} (``No Independence") would predict that those coefficients will be non-zero.
 
-The results of fitting Eqn. \ref{RelationalEmotionModel} (i.e., \{$b_1,\ldots, b_6$\}) are presented in Fig. \ref{Expt1Results1}. We note two major results. First, there seems to be no evidence for any dependence across the two attributions. That is, 
+The results of fitting Eqn. \ref{RelationalEmotionModel} (i.e., \{$b_1,\ldots, b_6$\}), with random effects by subject and wheels, are presented in Fig. \ref{Expt1Results1}. We note two major results. First, there seems to be no evidence for any dependence across the two attributions. Across all the emotions and collapsed across both events $X$ and $Y$, the features of the other event do not affect the judgments of the considered event ($\chi^2(3)=1.36, p=0.72$). This result supports the independence hypothesis, or Hypothesis \ref{Hypothesis:NoCrossTalk}. Observers are able to make independent judgments about emotions following two events X, Y that occur to an agent.
+
+Second, making two relational attributions qualitatively changes the features considered during attribution. In particular, there does not seem to be evidence for any dependency on absPE when considering all the emotions ($\chi^2(1)=1.13, p=0.29$), although it still matters for Sadness ($\chi^2(1)=5.29, p=0.02$) and marginally for Disappointment ($\chi^2(1)=3.10, p=0.08$). Participants seem to exhibit no loss aversion, except for Sadness\footnote{In Ong, Zaki, and Goodman (under review), we find significant effects of loss aversion across all emotions, even the positive emotions.}. Thus, even though $E_R(A,\mathscr{F}(X))$ does not depend on $\mathscr{F}(Y)$, the mere presence of event $Y$ changes $\mathscr{F}(X)$. In particular, the fact that the agent will experience a second event seems to remove the effects of loss aversion. One argument could be from amortizing losses: even if the agent gets a bad outcome on event $X$, he still has a chance to make it up and get a good outcome on event $Y$, and so the expectation of future non-losses might reduce loss aversion in the present. If the probability of a bad outcome is $p$, the probability of two bad outcomes is $p^2$. Similarly, this argument works the other way: if the agent receives a bad outcome on the second event $Y$, odds are he had received a good outcome on the past event $X$, and so that might remove loss aversion on the present event $Y$.
+
+
+
 
 \begin{figure}[htb!]
 \includegraphics[width=\columnwidth]{images/Expt1Coefficients.png}
@@ -246,7 +253,7 @@ Next, we proceeded to model the overall emotion as a linear combination of the t
 \begin{align} \label{OverallEmotionModel}
 E_S(A) = b_0 + b_1 E_R(A,X) + b_2 E_R(A,Y) + \epsilon
 \end{align}
-Hypothesis \ref{Hypothesis:SimpleAverage} would predict that the weights on the two relational attributions would be similar ($b_1 = b_2$), while Hypothesis \ref{Hypothesis:RecencyWeighted} would predict that the weight on the temporally-later (more recent) attribution would carry more weight ($b_2 > b_1$). The results of the model in Eqn. \ref{OverallEmotionModel} are shown in Figure \ref{Expt1Results2}. The coefficients on the second emotion were consistently higher than those on the first emotion, across all six emotions measured ($\chi^2(6)=278.04, p\ll.001$). The ratio $b_2/b_1$ ranged from 1.42 (for Content) to 2.21 (for Regret), with an average of 1.68; thus, on average the second relational emotion attributed was weighted almost 70\% more than the first relational emotion attributed. These results support Hypothesis \ref{Hypothesis:RecencyWeighted}: observers seem to be weighing recent events more than less-recent events.
+Hypothesis \ref{Hypothesis:SimpleAverage} would predict that the weights on the two relational attributions would be similar ($b_1 = b_2$), while Hypothesis \ref{Hypothesis:RecencyWeighted} would predict that the weight on the temporally-later (more recent) attribution would carry more weight ($b_2 > b_1$). The results of the model in Eqn. \ref{OverallEmotionModel}, with additional random effects by subject and wheels, are shown in Figure \ref{Expt1Results2}. The coefficients on the second emotion were consistently higher than those on the first emotion, across all six emotions measured ($\chi^2(6)=278.04, p\ll.001$). The ratio $b_2/b_1$ ranged from 1.42 (for Content) to 2.21 (for Regret), with an average of 1.68; thus, on average the second relational emotion attributed was weighted almost 70\% more than the first relational emotion attributed. These results support Hypothesis \ref{Hypothesis:RecencyWeighted}: observers seem to be weighing recent events more than less-recent events.
 
 \begin{figure}[htb!]
 \includegraphics[width=\columnwidth]{images/Expt1OverallEmotion.png}
