@@ -1,0 +1,1194 @@
+---
+title: "RelationalToE"
+author: "Desmond Ong"
+date: "November 13, 2014"
+output: html_document
+---
+
+```{r preamble, echo=FALSE, message=FALSE}
+setwd("~/Dropbox/Stanford/Research/emoResponse/Project/Analysis_relationalToE")
+source("~/Dropbox/Stanford/Research/emoResponse/Project/Common R Scripts/processData.R")
+#library(poweRlaw)
+source("~/Dropbox/Stanford/Research/emoResponse/Project/Common R Scripts/summarySE.R")
+library(ggplot2)
+library(lme4)
+library(plyr)
+cbPal <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+my_default_theme = theme_bw() + theme(strip.background = element_rect(fill="#FFFFFF"), 
+        strip.text = element_text(size=12), 
+        axis.text = element_text(size=12),
+        axis.title.x = element_text(size=14, vjust=-0.2),
+        axis.title.y = element_text(size=14, vjust=0.35),
+        legend.text = element_text(size=12),
+        title = element_text(size=18, vjust=1),
+        panel.grid = element_blank())
+```
+
+
+```{r v60-preamble, echo=FALSE, message=FALSE, warning=FALSE}
+v60data.wide = read.csv('data_v60.csv', header=TRUE)
+
+v60data <- processData(v60data.wide,
+                       variableList = c("spinnerPairID", "spinnerPairCode", 
+                                        "spinnerID_1","payoff1_1", "payoff2_1", "payoff3_1", 
+                                        "prob1_1", "prob2_1", "prob3_1", 
+                                        "winChoice_1", "win_1", "winProb_1",
+                                        "spinnerID_2","payoff1_2", "payoff2_2", "payoff3_2", 
+                                        "prob1_2", "prob2_2", "prob3_2", 
+                                        "winChoice_2", "win_2", "winProb_2",
+                                        "angleProportion_1", "angleProportion_2",
+                                        "attentionCheck1", "attentionCheck2",
+                                        "leftWheelFirst", "reactionTime",
+                                        "happy1", "sad1", "content1", "disapp1", "relief1", "regret1",
+                                        "happy2", "sad2", "content2", "disapp2", "relief2", "regret2",
+                                        "happy3", "sad3", "content3", "disapp3", "relief3", "regret3"), 
+                            idVarList = c("workerid", "condition", "gender", "age"),
+                            numTrials = 5)
+
+## My Notes
+## 
+## e.g. SpinnerID_1: A, SpinnerID_2: B
+## 
+## leftWheelFirst==1:
+##   A drawn on Left, B drawn on Right
+## 	Asked about Left wheel First [spinner A]
+## 	Chronologically-first data [Left Wheel, A] goes into emotion1array
+## 
+## 	A == asked first
+## 	B == asked second
+## 	emotion1array == LEFT wheel: A
+## 	emotion2array == RIGHT wheel: B
+## 	spinnerID_1: matched with emotion1array
+## 	spinnerID_2: matched with emotion2array
+## 
+## leftWheelFirst==0:
+## 	B drawn on Left, A drawn on Right
+## 	Asked about Right wheel First [spinner A]
+## 	Chronologically-first data [Right Wheel, A] goes into emotion2array
+## 
+## 	A == asked first
+## 	B == asked second
+## 	emotion1array == LEFT wheel: B
+## 	emotion2array == RIGHT wheel: A
+## 
+
+
+# I messed up the randomization. I ended up randomizing the side the wheels are on, e.g. wheel A on left, wheel B on right.
+# but I always asked about wheel A first, then wheel B.
+#     the subscript _1 means LEFT wheel; _2 means RIGHT wheel
+
+# As such, I'm renaming the "leftWheelFirst" variable to "firstWheelShownOnLeft"
+v60data = rename(v60data, c("leftWheelFirst"="firstWheelShownOnLeft"))
+
+# messed up the spinnerID: this is a fix
+v60data$temp_spinnerID_1 = (v60data$firstWheelShownOnLeft==1)*v60data$spinnerID_1 + 
+  (v60data$firstWheelShownOnLeft==0)*v60data$spinnerID_2
+v60data$temp_spinnerID_2 = (v60data$firstWheelShownOnLeft==0)*v60data$spinnerID_1 + 
+  (v60data$firstWheelShownOnLeft==1)*v60data$spinnerID_2
+v60data$spinnerID_1 = v60data$temp_spinnerID_1
+v60data$spinnerID_2 = v60data$temp_spinnerID_2
+
+
+# calculating those who got the attention check correct: i.e. which wheel was rated first.
+v60data$attentionCheck1Correct = (v60data$attentionCheck1 - v60data$win_1)==0
+v60data$attentionCheck2Correct = (v60data$attentionCheck2 - v60data$win_2)==0
+v60data$use = v60data$attentionCheck1Correct & v60data$attentionCheck2Correct
+# removing those that failed the attention check
+# 703 trials passed attention check out of 750: 41 failed, and 6 were NAs (i.e. they wrote stuff or didn't fill it in)
+v60data = v60data[v60data$use==TRUE,]; v60data = v60data[!is.na(v60data$use),]
+
+```
+
+
+
+```{r v60-combined-analysis, echo=FALSE, message=FALSE, warning=FALSE}
+#looking across all wheels (i.e. collapsing across left/right, first/second)
+
+v60data_long = data.frame(workerid = c(v60data$workerid,v60data$workerid),
+                          spinnerID = c(v60data$spinnerID_1,v60data$spinnerID_2),
+                          payoff1 = c(v60data$payoff1_1,v60data$payoff1_2),
+                          payoff2 = c(v60data$payoff2_1,v60data$payoff2_2),
+                          payoff3 = c(v60data$payoff3_1,v60data$payoff3_2),
+                          prob1 = c(v60data$prob1_1,v60data$prob1_2),
+                          prob2 = c(v60data$prob2_1,v60data$prob2_2),
+                          prob3 = c(v60data$prob3_1,v60data$prob3_2),
+                          winChoice = c(v60data$winChoice_1,v60data$winChoice_2),
+                          win = c(v60data$win_1,v60data$win_2),
+                          winProb = c(v60data$winProb_1,v60data$winProb_2),
+                          angleProp = c(v60data$angleProportion_1,v60data$angleProportion_2),
+                          happy = c(v60data$happy1, v60data$happy2),
+                          sad = c(v60data$sad1, v60data$sad2),
+                          content = c(v60data$content1, v60data$content2),
+                          disapp = c(v60data$disapp1, v60data$disapp2),
+                          relief = c(v60data$relief1, v60data$relief2),
+                          regret = c(v60data$regret1, v60data$regret2)
+                          )
+
+v60data_long$EV = v60data_long$prob1*v60data_long$payoff1 + v60data_long$prob2*v60data_long$payoff2 + 
+  v60data_long$prob3*v60data_long$payoff3
+v60data_long$PE = v60data_long$win - v60data_long$EV
+v60data_long$absPE = abs(v60data_long$PE)
+
+collapsedModHappy = lmer(happy ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), v60data_long)
+collapsedModContent = lmer(content ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), v60data_long)
+collapsedModRelief = lmer(relief ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), v60data_long)
+
+collapsedModSad = lmer(sad ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), v60data_long)
+collapsedModDisapp = lmer(disapp ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), v60data_long)
+collapsedModRegret = lmer(regret ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), v60data_long)
+
+
+#summary(collapsedModHappy)
+#summary(collapsedModContent)
+#summary(collapsedModRelief)
+
+#summary(collapsedModSad)
+#summary(collapsedModDisapp)
+#summary(collapsedModRegret)
+```
+
+# Multi attribution experiment
+
+https://web.stanford.edu/~dco/experiments/v60
+
+Bob spins two wheels (call them wheel A and wheel B).
+
+- Asked how he feels about wheel A 
+- Asked how he feels about wheel B
+- Asked how he feels overall
+
+(For this experiment, I randomized whether A and B were on the left or right, but I always asked about wheel A first, and then about wheel B. Order of asking is the same, but left/right was counterbalanced, so whether Ps were asked about LEFT wheel first or RIGHT wheel first was counterbalanced.)
+
+DVs:
+
+- Happy
+- Content
+- Relief
+- Sad
+- Disappointment
+- Regret
+
+### Collapsing across all wheels
+
+If we collapse across all wheels (i.e. collapsing left/right, first/second, etc), and just model how Bob feels about that wheel,
+
+* Loss Aversion seems to disappear.
+
+Emotion (t value in parenthesis)          | Main Effect   | Coeff on Win  | Coeff on PE   | Coeff on absPE
+-------------     | ------------- | ------------- | ------------- | -------------
+Happy, collapsed across all   | `r summary(collapsedModHappy)$coefficients[1,1]` (`r summary(collapsedModHappy)$coefficients[1,3]`) | `r summary(collapsedModHappy)$coefficients[2,1]` (`r summary(collapsedModHappy)$coefficients[2,3]`)        | `r summary(collapsedModHappy)$coefficients[3,1]` (`r summary(collapsedModHappy)$coefficients[3,3]`)       | `r summary(collapsedModHappy)$coefficients[4,1]` (`r summary(collapsedModHappy)$coefficients[4,3]`)
+Content, collapsed across all   | `r summary(collapsedModContent)$coefficients[1,1]` (`r summary(collapsedModContent)$coefficients[1,3]`) | `r summary(collapsedModContent)$coefficients[2,1]` (`r summary(collapsedModContent)$coefficients[2,3]`)        | `r summary(collapsedModContent)$coefficients[3,1]` (`r summary(collapsedModContent)$coefficients[3,3]`)       | `r summary(collapsedModContent)$coefficients[4,1]` (`r summary(collapsedModContent)$coefficients[4,3]`)
+Relief, collapsed across all   | `r summary(collapsedModRelief)$coefficients[1,1]` (`r summary(collapsedModRelief)$coefficients[1,3]`) | `r summary(collapsedModRelief)$coefficients[2,1]` (`r summary(collapsedModRelief)$coefficients[2,3]`)        | `r summary(collapsedModRelief)$coefficients[3,1]` (`r summary(collapsedModRelief)$coefficients[3,3]`)       | `r summary(collapsedModRelief)$coefficients[4,1]` (`r summary(collapsedModRelief)$coefficients[4,3]`)
+--- | --- | --- | --- | ---
+Sad, collapsed across all   | `r summary(collapsedModSad)$coefficients[1,1]` (`r summary(collapsedModSad)$coefficients[1,3]`) | `r summary(collapsedModSad)$coefficients[2,1]` (`r summary(collapsedModSad)$coefficients[2,3]`)        | `r summary(collapsedModSad)$coefficients[3,1]` (`r summary(collapsedModSad)$coefficients[3,3]`)       | `r summary(collapsedModSad)$coefficients[4,1]` (`r summary(collapsedModSad)$coefficients[4,3]`)
+Disapp, collapsed across all   | `r summary(collapsedModDisapp)$coefficients[1,1]` (`r summary(collapsedModDisapp)$coefficients[1,3]`) | `r summary(collapsedModDisapp)$coefficients[2,1]` (`r summary(collapsedModDisapp)$coefficients[2,3]`)        | `r summary(collapsedModDisapp)$coefficients[3,1]` (`r summary(collapsedModDisapp)$coefficients[3,3]`)       | `r summary(collapsedModDisapp)$coefficients[4,1]` (`r summary(collapsedModDisapp)$coefficients[4,3]`)
+Regret, collapsed across all   | `r summary(collapsedModRegret)$coefficients[1,1]` (`r summary(collapsedModRegret)$coefficients[1,3]`) | `r summary(collapsedModRegret)$coefficients[2,1]` (`r summary(collapsedModRegret)$coefficients[2,3]`)        | `r summary(collapsedModRegret)$coefficients[3,1]` (`r summary(collapsedModRegret)$coefficients[3,3]`)       | `r summary(collapsedModRegret)$coefficients[4,1]` (`r summary(collapsedModRegret)$coefficients[4,3]`)
+
+
+```{r v60-indiv-wheel-analysis, echo=FALSE, message=FALSE, warning=FALSE}
+v60data$EV_1 = v60data$prob1_1*v60data$payoff1_1 + v60data$prob2_1*v60data$payoff2_1 + 
+  v60data$prob3_1*v60data$payoff3_1
+v60data$PE_1 = v60data$win_1 - v60data$EV_1
+v60data$absPE_1 = abs(v60data$PE_1)
+
+v60data$EV_2 = v60data$prob1_2*v60data$payoff1_2 + v60data$prob2_2*v60data$payoff2_2 + 
+  v60data$prob3_2*v60data$payoff3_2
+v60data$PE_2 = v60data$win_2 - v60data$EV_2
+v60data$absPE_2 = abs(v60data$PE_2)
+
+
+# emotion about the LEFT wheel
+leftWheelModHappy = lmer(happy1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+leftWheelModContent = lmer(content1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                             (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+leftWheelModRelief = lmer(relief1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                            (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+
+leftWheelModSad = lmer(sad1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                         (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+leftWheelModDisapp = lmer(disapp1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                            (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+leftWheelModRegret = lmer(regret1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                            (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+
+# #adding interaction on which wheel was asked first
+# summary(lmer(happy1 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) +
+#                (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+
+v60data$firstWheelShownOnRight = 1-v60data$firstWheelShownOnLeft
+
+leftWheelModInteractionHappy = lmer(happy1 ~ firstWheelShownOnRight*((win_1 + PE_1 + absPE_1) + 
+                                                                       (win_2 + PE_2 + absPE_2)) +
+                                      (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+rightWheelModInteractionHappy = lmer(happy2 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + 
+                                                                       (win_2 + PE_2 + absPE_2)) +
+                                      (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+
+
+# emotion about the Right wheel
+rightWheelModHappy = lmer(happy2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                            (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+rightWheelModContent = lmer(content2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                              (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+rightWheelModRelief = lmer(relief2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                             (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+
+rightWheelModSad = lmer(sad2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                          (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+rightWheelModDisapp = lmer(disapp2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                             (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+rightWheelModRegret = lmer(regret2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                             (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data)
+
+```
+
+### Analysis on individual wheels
+
+Emotion (t value in parenthesis)          | Main Effect   | Coeff on Win  | Coeff on PE   | Coeff on absPE
+-------------     | ------------- | ------------- | ------------- | -------------
+Happy for left wheel, Left wheel   | `r summary(leftWheelModHappy)$coefficients[1,1]` (`r summary(leftWheelModHappy)$coefficients[1,3]`) | `r summary(leftWheelModHappy)$coefficients[2,1]` (`r summary(leftWheelModHappy)$coefficients[2,3]`)        | `r summary(leftWheelModHappy)$coefficients[3,1]` (`r summary(leftWheelModHappy)$coefficients[3,3]`)       | `r summary(leftWheelModHappy)$coefficients[4,1]` (`r summary(leftWheelModHappy)$coefficients[4,3]`)
+ (coeffs on right wheel)   | --- | `r summary(leftWheelModHappy)$coefficients[5,1]` (`r summary(leftWheelModHappy)$coefficients[5,3]`)        | `r summary(leftWheelModHappy)$coefficients[6,1]` (`r summary(leftWheelModHappy)$coefficients[6,3]`)       | `r summary(leftWheelModHappy)$coefficients[7,1]` (`r summary(leftWheelModHappy)$coefficients[7,3]`)
+Happy for right wheel, Left wheel   | `r summary(rightWheelModHappy)$coefficients[1,1]` (`r summary(rightWheelModHappy)$coefficients[1,3]`) | `r summary(rightWheelModHappy)$coefficients[2,1]` (`r summary(rightWheelModHappy)$coefficients[2,3]`)        | `r summary(rightWheelModHappy)$coefficients[3,1]` (`r summary(rightWheelModHappy)$coefficients[3,3]`)       | `r summary(rightWheelModHappy)$coefficients[4,1]` (`r summary(rightWheelModHappy)$coefficients[4,3]`)
+ (coeffs on right wheel)   | --- | `r summary(rightWheelModHappy)$coefficients[5,1]` (`r summary(rightWheelModHappy)$coefficients[5,3]`)        | `r summary(rightWheelModHappy)$coefficients[6,1]` (`r summary(rightWheelModHappy)$coefficients[6,3]`)       | `r summary(rightWheelModHappy)$coefficients[7,1]` (`r summary(rightWheelModHappy)$coefficients[7,3]`)
+
+So judgments seem to affect each other. Let's look at order effects:
+
+Emotion (t value in parenthesis)          | Main Effect   | Coeff on Win  | Coeff on PE   | Coeff on absPE
+-------------     | ------------- | ------------- | ------------- | -------------
+Happy for left wheel, Left wheel   | `r summary(leftWheelModInteractionHappy)$coefficients[1,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[1,3]`) | `r summary(leftWheelModInteractionHappy)$coefficients[3,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[3,3]`)        | `r summary(leftWheelModInteractionHappy)$coefficients[4,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[4,3]`)       | `r summary(leftWheelModInteractionHappy)$coefficients[5,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[5,3]`)
+firstWheelShownOnRight times (coeffs on left wheel)   | `r summary(leftWheelModInteractionHappy)$coefficients[2,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[2,3]`) | `r summary(leftWheelModInteractionHappy)$coefficients[9,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[9,3]`)        | `r summary(leftWheelModInteractionHappy)$coefficients[10,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[10,3]`)       | `r summary(leftWheelModInteractionHappy)$coefficients[11,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[11,3]`)
+(coeffs on right wheel)   | --- | `r summary(leftWheelModInteractionHappy)$coefficients[6,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[6,3]`)        | `r summary(leftWheelModInteractionHappy)$coefficients[7,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[7,3]`)       | `r summary(leftWheelModInteractionHappy)$coefficients[8,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[8,3]`)
+firstWheelShownOnRight times (coeffs on right wheel)   | --- | `r summary(leftWheelModInteractionHappy)$coefficients[12,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[12,3]`)        | `r summary(leftWheelModInteractionHappy)$coefficients[13,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[13,3]`)       | `r summary(leftWheelModInteractionHappy)$coefficients[14,1]` (`r summary(leftWheelModInteractionHappy)$coefficients[14,3]`)
+--- | --- | --- | --- | ---
+Happy for right wheel, Left wheel   | `r summary(rightWheelModInteractionHappy)$coefficients[1,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[1,3]`) | `r summary(rightWheelModInteractionHappy)$coefficients[3,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[3,3]`)        | `r summary(rightWheelModInteractionHappy)$coefficients[4,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[4,3]`)       | `r summary(rightWheelModInteractionHappy)$coefficients[5,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[5,3]`)
+firstWheelShownOnLeft times (coeffs on left wheel)   | `r summary(rightWheelModInteractionHappy)$coefficients[2,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[2,3]`) | `r summary(rightWheelModInteractionHappy)$coefficients[9,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[9,3]`)        | `r summary(rightWheelModInteractionHappy)$coefficients[10,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[10,3]`)       | `r summary(rightWheelModInteractionHappy)$coefficients[11,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[11,3]`)
+(coeffs on right wheel)   | --- | `r summary(rightWheelModInteractionHappy)$coefficients[6,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[6,3]`)        | `r summary(rightWheelModInteractionHappy)$coefficients[7,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[7,3]`)       | `r summary(rightWheelModInteractionHappy)$coefficients[8,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[8,3]`)
+firstWheelShownOnLeft times (coeffs on right wheel)   | --- | `r summary(rightWheelModInteractionHappy)$coefficients[12,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[12,3]`)        | `r summary(rightWheelModInteractionHappy)$coefficients[13,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[13,3]`)       | `r summary(rightWheelModInteractionHappy)$coefficients[14,1]` (`r summary(rightWheelModInteractionHappy)$coefficients[14,3]`)
+
+
+
+```{r, echo=FALSE, eval=FALSE}
+summary(leftWheelModInteractionHappy)$coefficients
+```
+
+
+### Overall feelings
+
+
+```{r v60-overall-analysis, echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+
+# # combined emotion
+summary(lmer(happy3 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(content3 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(relief3 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(sad3 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(disapp3 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(regret3 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+
+
+
+
+# summary(lmer(happy3 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) + 
+#                (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+# 
+# anova(lmer(happy3 ~ firstWheelShownOnLeft*((win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2)) + 
+#                (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+
+
+summary(lmer(happy3 ~ firstWheelShownOnLeft*(happy1 + happy2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(content3 ~ firstWheelShownOnLeft*(content1 + content2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(relief3 ~ firstWheelShownOnLeft*(relief1 + relief2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(sad3 ~ firstWheelShownOnLeft*(sad1 + sad2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(disapp3 ~ firstWheelShownOnLeft*(disapp1 + disapp2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+summary(lmer(regret3 ~ firstWheelShownOnLeft*(regret1 + regret2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v60data))
+
+
+
+#ggplot(v60data_long, aes(x=PE, y=happy)) + geom_point(position=position_dodge())
+```
+
+If first wheel asked is on the right, Left Wheel is weighted more than Right Wheel. (that's the interactionless coeff on win_1 etc)
+
+If first wheel asked is on the left, Left Wheel is weighted less compared to when it was asked about second. (recency) (interaction sig. for happy, relief, disapp, regret)
+
+but in e3 = e1 + e2, weights are similar for both e1 and e2. (Except for relief; e1 is weighed more)
+
+# Sequential
+
+https://web.stanford.edu/~dco/experiments/v61
+
+
+```{r v61-preamble, echo=FALSE, message=FALSE, warning=FALSE}
+v61data.wide = read.csv('data_v61.csv', header=TRUE)
+
+v61data <- processData(v61data.wide,
+                       variableList = c("order", "askAboutLeftWheelFirst", "showFirstOfPairFirst",
+                                        "spinnerPairID", "spinnerPairCode", 
+                                        "spinnerID_1","payoff1_1", "payoff2_1", "payoff3_1", 
+                                        "prob1_1", "prob2_1", "prob3_1", 
+                                        "winChoice_1", "win_1", "winProb_1",
+                                        "spinnerID_2","payoff1_2", "payoff2_2", "payoff3_2", 
+                                        "prob1_2", "prob2_2", "prob3_2", 
+                                        "winChoice_2", "win_2", "winProb_2",
+                                        "angleProportion_1", "angleProportion_2",
+                                        "attentionCheck1", "attentionCheck2",
+                                        "reactionTime",
+                                        "happy1", "sad1", "content1", "disapp1", "relief1", "regret1",
+                                        "happy2", "sad2", "content2", "disapp2", "relief2", "regret2",
+                                        "happy3", "sad3", "content3", "disapp3", "relief3", "regret3"), 
+                            idVarList = c("workerid", "gender", "age"),
+                            numTrials = 5)
+v61data = rename(v61data, c("angleProportion_1"="angleProp_1", "angleProportion_2" = "angleProp_2"))
+
+#again, I messed up the randomization. Here's a fix.
+
+# messed up the spinnerID: this is a fix
+v61data$temp_payoff1_1 = (v61data$showFirstOfPairFirst==1)*v61data$payoff1_1 + 
+                         (v61data$showFirstOfPairFirst==0)*v61data$payoff1_2
+v61data$temp_payoff2_1 = (v61data$showFirstOfPairFirst==1)*v61data$payoff2_1 + 
+                         (v61data$showFirstOfPairFirst==0)*v61data$payoff2_2
+v61data$temp_payoff3_1 = (v61data$showFirstOfPairFirst==1)*v61data$payoff3_1 + 
+                         (v61data$showFirstOfPairFirst==0)*v61data$payoff3_2
+v61data$temp_prob1_1 = (v61data$showFirstOfPairFirst==1)*v61data$prob1_1 + 
+                       (v61data$showFirstOfPairFirst==0)*v61data$prob1_2
+v61data$temp_prob2_1 = (v61data$showFirstOfPairFirst==1)*v61data$prob2_1 + 
+                       (v61data$showFirstOfPairFirst==0)*v61data$prob2_2
+v61data$temp_prob3_1 = (v61data$showFirstOfPairFirst==1)*v61data$prob3_1 + 
+                       (v61data$showFirstOfPairFirst==0)*v61data$prob3_2
+v61data$temp_angleProp_1 = (v61data$showFirstOfPairFirst==1)*v61data$angleProp_1 + 
+                           (v61data$showFirstOfPairFirst==0)*v61data$angleProp_2
+v61data$temp_winChoice_1 = (v61data$showFirstOfPairFirst==1)*v61data$winChoice_1 + 
+                           (v61data$showFirstOfPairFirst==0)*v61data$winChoice_2
+v61data$temp_win_1 = (v61data$showFirstOfPairFirst==1)*v61data$win_1 + 
+                     (v61data$showFirstOfPairFirst==0)*v61data$win_2
+v61data$temp_winProb_1 = (v61data$showFirstOfPairFirst==1)*v61data$winProb_1 + 
+                         (v61data$showFirstOfPairFirst==0)*v61data$winProb_2
+v61data$temp_payoff1_2 = (v61data$showFirstOfPairFirst==0)*v61data$payoff1_1 + 
+                         (v61data$showFirstOfPairFirst==1)*v61data$payoff1_2
+v61data$temp_payoff2_2 = (v61data$showFirstOfPairFirst==0)*v61data$payoff2_1 + 
+                         (v61data$showFirstOfPairFirst==1)*v61data$payoff2_2
+v61data$temp_payoff3_2 = (v61data$showFirstOfPairFirst==0)*v61data$payoff3_1 + 
+                         (v61data$showFirstOfPairFirst==1)*v61data$payoff3_2
+v61data$temp_prob1_2 = (v61data$showFirstOfPairFirst==0)*v61data$prob1_1 + 
+                       (v61data$showFirstOfPairFirst==1)*v61data$prob1_2
+v61data$temp_prob2_2 = (v61data$showFirstOfPairFirst==0)*v61data$prob2_1 + 
+                       (v61data$showFirstOfPairFirst==1)*v61data$prob2_2
+v61data$temp_prob3_2 = (v61data$showFirstOfPairFirst==0)*v61data$prob3_1 + 
+                       (v61data$showFirstOfPairFirst==1)*v61data$prob3_2
+v61data$temp_angleProp_2 = (v61data$showFirstOfPairFirst==0)*v61data$angleProp_1 + 
+                           (v61data$showFirstOfPairFirst==1)*v61data$angleProp_2
+v61data$temp_winChoice_2 = (v61data$showFirstOfPairFirst==0)*v61data$winChoice_1 + 
+                           (v61data$showFirstOfPairFirst==1)*v61data$winChoice_2
+v61data$temp_win_2 = (v61data$showFirstOfPairFirst==0)*v61data$win_1 + 
+                     (v61data$showFirstOfPairFirst==1)*v61data$win_2
+v61data$temp_winProb_2 = (v61data$showFirstOfPairFirst==0)*v61data$winProb_1 + 
+                         (v61data$showFirstOfPairFirst==1)*v61data$winProb_2
+
+v61data$payoff1_1 = v61data$temp_payoff1_1
+v61data$payoff2_1 = v61data$temp_payoff2_1
+v61data$payoff3_1 = v61data$temp_payoff3_1
+v61data$prob1_1 = v61data$temp_prob1_1
+v61data$prob2_1 = v61data$temp_prob2_1
+v61data$prob3_1 = v61data$temp_prob3_1
+v61data$angleProp_1 = v61data$temp_angleProp_1
+v61data$winChoice_1 = v61data$temp_winChoice_1
+v61data$win_1 = v61data$temp_win_1
+v61data$winProb_1 = v61data$temp_winProb_1
+v61data$payoff1_2 = v61data$temp_payoff1_2
+v61data$payoff2_2 = v61data$temp_payoff2_2
+v61data$payoff3_2 = v61data$temp_payoff3_2
+v61data$prob1_2 = v61data$temp_prob1_2
+v61data$prob2_2 = v61data$temp_prob2_2
+v61data$prob3_2 = v61data$temp_prob3_2
+v61data$angleProp_2 = v61data$temp_angleProp_2
+v61data$winChoice_2 = v61data$temp_winChoice_2
+v61data$win_2 = v61data$temp_win_2
+v61data$winProb_2 = v61data$temp_winProb_2
+
+
+
+
+# calculating those who got the attention check correct: i.e. which wheel was rated first.
+v61data$attentionCheck1Correct = (v61data$attentionCheck1 - v61data$win_1)==0
+v61data$attentionCheck2Correct = (v61data$attentionCheck2 - v61data$win_2)==0
+v61data$use = v61data$attentionCheck1Correct & v61data$attentionCheck2Correct
+# removing those that failed the attention check
+# 675 trials passed attention check out of 750: 31 failed, and 44 were NAs (i.e. they wrote stuff or didn't fill it in)
+v61data = v61data[v61data$use==TRUE,]; v61data = v61data[!is.na(v61data$use),]
+v61data = v61data[,-c(52:71)]
+
+
+v61data$EV_1 = v61data$prob1_1*v61data$payoff1_1 + v61data$prob2_1*v61data$payoff2_1 + 
+  v61data$prob3_1*v61data$payoff3_1
+v61data$PE_1 = v61data$win_1 - v61data$EV_1
+v61data$absPE_1 = abs(v61data$PE_1)
+
+v61data$EV_2 = v61data$prob1_2*v61data$payoff1_2 + v61data$prob2_2*v61data$payoff2_2 + 
+  v61data$prob3_2*v61data$payoff3_2
+v61data$PE_2 = v61data$win_2 - v61data$EV_2
+v61data$absPE_2 = abs(v61data$PE_2)
+```
+
+
+
+```{r v61-model-1, echo=FALSE}
+
+collapsedDF = data.frame(workerid = c(v61data$workerid, v61data$workerid),
+                         askedFirst = c(v61data$askAboutLeftWheelFirst, 1-v61data$askAboutLeftWheelFirst),
+                         spinnerID = c(v61data$spinnerID_1, v61data$spinnerID_2),
+                         win = c(v61data$win_1, v61data$win_2),
+                         PE = c(v61data$PE_1, v61data$PE_2),
+                         absPE = c(v61data$absPE_1, v61data$absPE_2),
+                         happy = c(v61data$happy1, v61data$happy2),
+                         content = c(v61data$content1, v61data$content2),
+                         relief = c(v61data$relief1, v61data$relief2),
+                         sad = c(v61data$sad1, v61data$sad2),
+                         disapp = c(v61data$disapp1, v61data$disapp2),
+                         regret = c(v61data$regret1, v61data$regret2))
+
+
+collapsedModHappy = lmer(happy ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModContent = lmer(content ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModRelief = lmer(relief ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModSad = lmer(sad ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModDisapp = lmer(disapp ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModRegret = lmer(regret ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+```
+
+
+### Collapsing across all wheels
+
+If we collapse across all wheels (i.e. collapsing left/right, first/second, etc), and just model how Bob feels about that wheel,
+
+* Loss Aversion seems to disappear.
+
+Emotion (t value in parenthesis)          | Main Effect   | Coeff on Win  | Coeff on PE   | Coeff on absPE
+-------------     | ------------- | ------------- | ------------- | -------------
+Happy, collapsed across all   | `r summary(collapsedModHappy)$coefficients[1,1]` (**`r summary(collapsedModHappy)$coefficients[1,3]`**) | `r summary(collapsedModHappy)$coefficients[2,1]` (**`r summary(collapsedModHappy)$coefficients[2,3]`**)        | `r summary(collapsedModHappy)$coefficients[3,1]` (**`r summary(collapsedModHappy)$coefficients[3,3]`**)       | `r summary(collapsedModHappy)$coefficients[4,1]` (`r summary(collapsedModHappy)$coefficients[4,3]`)
+Content, collapsed across all   | `r summary(collapsedModContent)$coefficients[1,1]` (**`r summary(collapsedModContent)$coefficients[1,3]`**) | `r summary(collapsedModContent)$coefficients[2,1]` (**`r summary(collapsedModContent)$coefficients[2,3]`**)        | `r summary(collapsedModContent)$coefficients[3,1]` (**`r summary(collapsedModContent)$coefficients[3,3]`**)       | `r summary(collapsedModContent)$coefficients[4,1]` (`r summary(collapsedModContent)$coefficients[4,3]`)
+Relief, collapsed across all   | `r summary(collapsedModRelief)$coefficients[1,1]` (**`r summary(collapsedModRelief)$coefficients[1,3]`**) | `r summary(collapsedModRelief)$coefficients[2,1]` (`r summary(collapsedModRelief)$coefficients[2,3]`)        | `r summary(collapsedModRelief)$coefficients[3,1]` (**`r summary(collapsedModRelief)$coefficients[3,3]`**)       | `r summary(collapsedModRelief)$coefficients[4,1]` (`r summary(collapsedModRelief)$coefficients[4,3]`)
+--- | --- | --- | --- | ---
+Sad, collapsed across all   | `r summary(collapsedModSad)$coefficients[1,1]` (**`r summary(collapsedModSad)$coefficients[1,3]`**) | `r summary(collapsedModSad)$coefficients[2,1]` (**`r summary(collapsedModSad)$coefficients[2,3]`**)        | `r summary(collapsedModSad)$coefficients[3,1]` (**`r summary(collapsedModSad)$coefficients[3,3]`**)       | `r summary(collapsedModSad)$coefficients[4,1]` (**`r summary(collapsedModSad)$coefficients[4,3]`**)
+Disapp, collapsed across all   | `r summary(collapsedModDisapp)$coefficients[1,1]` (**`r summary(collapsedModDisapp)$coefficients[1,3]`**) | `r summary(collapsedModDisapp)$coefficients[2,1]` (**`r summary(collapsedModDisapp)$coefficients[2,3]`**)        | `r summary(collapsedModDisapp)$coefficients[3,1]` (**`r summary(collapsedModDisapp)$coefficients[3,3]`**)       | `r summary(collapsedModDisapp)$coefficients[4,1]` (`r summary(collapsedModDisapp)$coefficients[4,3]`)
+Regret, collapsed across all   | `r summary(collapsedModRegret)$coefficients[1,1]` (**`r summary(collapsedModRegret)$coefficients[1,3]`**) | `r summary(collapsedModRegret)$coefficients[2,1]` (**`r summary(collapsedModRegret)$coefficients[2,3]`**)        | `r summary(collapsedModRegret)$coefficients[3,1]` (**`r summary(collapsedModRegret)$coefficients[3,3]`**)       | `r summary(collapsedModRegret)$coefficients[4,1]` (`r summary(collapsedModRegret)$coefficients[4,3]`)
+
+```{r v61-model-2, echo=FALSE}
+firstWheelModHappy   = lmer(happy1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+firstWheelModContent = lmer(content1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+firstWheelModRelief  = lmer(relief1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+firstWheelModSad     = lmer(sad1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+firstWheelModDisapp  = lmer(disapp1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+firstWheelModRegret  = lmer(regret1 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+
+
+# summary(firstWheelModHappy)
+# summary(firstWheelModContent)
+# summary(firstWheelModRelief)
+# summary(firstWheelModSad)
+# summary(firstWheelModDisapp)
+# summary(firstWheelModRegret)
+
+
+secondWheelModHappy   = lmer(happy2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+secondWheelModContent = lmer(content2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+secondWheelModRelief  = lmer(relief2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+secondWheelModSad     = lmer(sad2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+secondWheelModDisapp  = lmer(disapp2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+secondWheelModRegret  = lmer(regret2 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+
+
+# summary(secondWheelModHappy)
+# summary(secondWheelModContent)
+# summary(secondWheelModRelief)
+# summary(secondWheelModSad)
+# summary(secondWheelModDisapp)
+# summary(secondWheelModRegret)
+
+
+bothWheelModHappy   = lmer(happy3 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModContent = lmer(content3 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModRelief  = lmer(relief3 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModSad     = lmer(sad3 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModDisapp  = lmer(disapp3 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModRegret  = lmer(regret3 ~ (win_1 + PE_1 + absPE_1) + (win_2 + PE_2 + absPE_2) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+
+
+# summary(bothWheelModHappy)
+# summary(bothWheelModContent)
+# summary(bothWheelModRelief)
+# summary(bothWheelModSad)
+# summary(bothWheelModDisapp)
+# summary(bothWheelModRegret)
+```
+
+### Analysis on individual wheels
+
+
+Emotion (t value in parenthesis)          | Main Effect   | Coeff on Win  | Coeff on PE   | Coeff on absPE
+-------------     | ------------- | ------------- | ------------- | -------------
+Happy for first wheel, first wheel   | `r summary(firstWheelModHappy)$coefficients[1,1]` (**`r summary(firstWheelModHappy)$coefficients[1,3]`**) | `r summary(firstWheelModHappy)$coefficients[2,1]` (**`r summary(firstWheelModHappy)$coefficients[2,3]`**)        | `r summary(firstWheelModHappy)$coefficients[3,1]` (**`r summary(firstWheelModHappy)$coefficients[3,3]`**)       | `r summary(firstWheelModHappy)$coefficients[4,1]` (`r summary(firstWheelModHappy)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(firstWheelModHappy)$coefficients[5,1]` (`r summary(firstWheelModHappy)$coefficients[5,3]`)        | `r summary(firstWheelModHappy)$coefficients[6,1]` (`r summary(firstWheelModHappy)$coefficients[6,3]`)       | `r summary(firstWheelModHappy)$coefficients[7,1]` (`r summary(firstWheelModHappy)$coefficients[7,3]`)
+Happy for second wheel, coeffs on first wheel   | `r summary(secondWheelModHappy)$coefficients[1,1]` (**`r summary(secondWheelModHappy)$coefficients[1,3]`**) | `r summary(secondWheelModHappy)$coefficients[2,1]` (`r summary(secondWheelModHappy)$coefficients[2,3]`)        | `r summary(secondWheelModHappy)$coefficients[3,1]` (`r summary(secondWheelModHappy)$coefficients[3,3]`)       | `r summary(secondWheelModHappy)$coefficients[4,1]` (`r summary(secondWheelModHappy)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(secondWheelModHappy)$coefficients[5,1]` (**`r summary(secondWheelModHappy)$coefficients[5,3]`**)        | `r summary(secondWheelModHappy)$coefficients[6,1]` (**`r summary(secondWheelModHappy)$coefficients[6,3]`**)       | `r summary(secondWheelModHappy)$coefficients[7,1]` (`r summary(secondWheelModHappy)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Content for first wheel, first wheel   | `r summary(firstWheelModContent)$coefficients[1,1]` (**`r summary(firstWheelModContent)$coefficients[1,3]`**) | `r summary(firstWheelModContent)$coefficients[2,1]` (**`r summary(firstWheelModContent)$coefficients[2,3]`**)        | `r summary(firstWheelModContent)$coefficients[3,1]` (**`r summary(firstWheelModContent)$coefficients[3,3]`**)       | `r summary(firstWheelModContent)$coefficients[4,1]` (`r summary(firstWheelModContent)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(firstWheelModContent)$coefficients[5,1]` (**`r summary(firstWheelModContent)$coefficients[5,3]`**)        | `r summary(firstWheelModContent)$coefficients[6,1]` (`r summary(firstWheelModContent)$coefficients[6,3]`)       | `r summary(firstWheelModContent)$coefficients[7,1]` (`r summary(firstWheelModContent)$coefficients[7,3]`)
+Content for second wheel, coeffs on first wheel   | `r summary(secondWheelModContent)$coefficients[1,1]` (**`r summary(secondWheelModContent)$coefficients[1,3]`**) | `r summary(secondWheelModContent)$coefficients[2,1]` (**`r summary(secondWheelModContent)$coefficients[2,3]`**)        | `r summary(secondWheelModContent)$coefficients[3,1]` (`r summary(secondWheelModContent)$coefficients[3,3]`)       | `r summary(secondWheelModContent)$coefficients[4,1]` (`r summary(secondWheelModContent)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(secondWheelModContent)$coefficients[5,1]` (**`r summary(secondWheelModContent)$coefficients[5,3]`**)        | `r summary(secondWheelModContent)$coefficients[6,1]` (**`r summary(secondWheelModContent)$coefficients[6,3]`**)       | `r summary(secondWheelModContent)$coefficients[7,1]` (`r summary(secondWheelModContent)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Relief for first wheel, coeffs on first wheel   | `r summary(firstWheelModRelief)$coefficients[1,1]` (**`r summary(firstWheelModRelief)$coefficients[1,3]`**) | `r summary(firstWheelModRelief)$coefficients[2,1]` (`r summary(firstWheelModRelief)$coefficients[2,3]`)        | `r summary(firstWheelModRelief)$coefficients[3,1]` (**`r summary(firstWheelModRelief)$coefficients[3,3]`**)       | `r summary(firstWheelModRelief)$coefficients[4,1]` (`r summary(firstWheelModRelief)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(firstWheelModRelief)$coefficients[5,1]` (`r summary(firstWheelModRelief)$coefficients[5,3]`)        | `r summary(firstWheelModRelief)$coefficients[6,1]` (`r summary(firstWheelModRelief)$coefficients[6,3]`)       | `r summary(firstWheelModRelief)$coefficients[7,1]` (`r summary(firstWheelModRelief)$coefficients[7,3]`)
+Relief for second wheel, coeff on first wheel   | `r summary(secondWheelModRelief)$coefficients[1,1]` (**`r summary(secondWheelModRelief)$coefficients[1,3]`**) | `r summary(secondWheelModRelief)$coefficients[2,1]` (`r summary(secondWheelModRelief)$coefficients[2,3]`)        | `r summary(secondWheelModRelief)$coefficients[3,1]` (`r summary(secondWheelModRelief)$coefficients[3,3]`)       | `r summary(secondWheelModRelief)$coefficients[4,1]` (`r summary(secondWheelModRelief)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(secondWheelModRelief)$coefficients[5,1]` (`r summary(secondWheelModRelief)$coefficients[5,3]`)        | `r summary(secondWheelModRelief)$coefficients[6,1]` (**`r summary(secondWheelModRelief)$coefficients[6,3]`**)       | `r summary(secondWheelModRelief)$coefficients[7,1]` (`r summary(secondWheelModRelief)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Sad for first wheel, coeffs on first wheel   | `r summary(firstWheelModSad)$coefficients[1,1]` (**`r summary(firstWheelModSad)$coefficients[1,3]`**) | `r summary(firstWheelModSad)$coefficients[2,1]` (**`r summary(firstWheelModSad)$coefficients[2,3]`**)        | `r summary(firstWheelModSad)$coefficients[3,1]` (**`r summary(firstWheelModSad)$coefficients[3,3]`**)       | `r summary(firstWheelModSad)$coefficients[4,1]` (**`r summary(firstWheelModSad)$coefficients[4,3]`**)
+ (coeffs on second wheel)   | --- | `r summary(firstWheelModSad)$coefficients[5,1]` (`r summary(firstWheelModSad)$coefficients[5,3]`)        | `r summary(firstWheelModSad)$coefficients[6,1]` (`r summary(firstWheelModSad)$coefficients[6,3]`)       | `r summary(firstWheelModSad)$coefficients[7,1]` (`r summary(firstWheelModSad)$coefficients[7,3]`)
+Sad for second wheel, coeff on first wheel   | `r summary(secondWheelModSad)$coefficients[1,1]` (**`r summary(secondWheelModSad)$coefficients[1,3]`**) | `r summary(secondWheelModSad)$coefficients[2,1]` (`r summary(secondWheelModSad)$coefficients[2,3]`)        | `r summary(secondWheelModSad)$coefficients[3,1]` (`r summary(secondWheelModSad)$coefficients[3,3]`)       | `r summary(secondWheelModSad)$coefficients[4,1]` (`r summary(secondWheelModSad)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(secondWheelModSad)$coefficients[5,1]` (**`r summary(secondWheelModSad)$coefficients[5,3]`**)        | `r summary(secondWheelModSad)$coefficients[6,1]` (**`r summary(secondWheelModSad)$coefficients[6,3]`**)       | `r summary(secondWheelModSad)$coefficients[7,1]` (**`r summary(secondWheelModSad)$coefficients[7,3]`**)
+--- | --- | --- | --- | ---
+Disapp for first wheel, coeffs on first wheel   | `r summary(firstWheelModDisapp)$coefficients[1,1]` (**`r summary(firstWheelModDisapp)$coefficients[1,3]`**) | `r summary(firstWheelModDisapp)$coefficients[2,1]` (`r summary(firstWheelModDisapp)$coefficients[2,3]`)        | `r summary(firstWheelModDisapp)$coefficients[3,1]` (**`r summary(firstWheelModDisapp)$coefficients[3,3]`**)       | `r summary(firstWheelModDisapp)$coefficients[4,1]` (**`r summary(firstWheelModDisapp)$coefficients[4,3]`**)
+ (coeffs on second wheel)   | --- | `r summary(firstWheelModDisapp)$coefficients[5,1]` (`r summary(firstWheelModDisapp)$coefficients[5,3]`)        | `r summary(firstWheelModDisapp)$coefficients[6,1]` (`r summary(firstWheelModDisapp)$coefficients[6,3]`)       | `r summary(firstWheelModDisapp)$coefficients[7,1]` (`r summary(firstWheelModDisapp)$coefficients[7,3]`)
+Disapp for second wheel, coeff on first wheel   | `r summary(secondWheelModDisapp)$coefficients[1,1]` (**`r summary(secondWheelModDisapp)$coefficients[1,3]`**) | `r summary(secondWheelModDisapp)$coefficients[2,1]` (`r summary(secondWheelModDisapp)$coefficients[2,3]`)        | `r summary(secondWheelModDisapp)$coefficients[3,1]` (`r summary(secondWheelModDisapp)$coefficients[3,3]`)       | `r summary(secondWheelModDisapp)$coefficients[4,1]` (`r summary(secondWheelModDisapp)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(secondWheelModDisapp)$coefficients[5,1]` (**`r summary(secondWheelModDisapp)$coefficients[5,3]`**)        | `r summary(secondWheelModDisapp)$coefficients[6,1]` (**`r summary(secondWheelModDisapp)$coefficients[6,3]`**)       | `r summary(secondWheelModDisapp)$coefficients[7,1]` (`r summary(secondWheelModDisapp)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Regret for first wheel, first wheel   | `r summary(firstWheelModRegret)$coefficients[1,1]` (**`r summary(firstWheelModRegret)$coefficients[1,3]`**) | `r summary(firstWheelModRegret)$coefficients[2,1]` (`r summary(firstWheelModRegret)$coefficients[2,3]`)        | `r summary(firstWheelModRegret)$coefficients[3,1]` (**`r summary(firstWheelModRegret)$coefficients[3,3]`**)       | `r summary(firstWheelModRegret)$coefficients[4,1]` (`r summary(firstWheelModRegret)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(firstWheelModRegret)$coefficients[5,1]` (`r summary(firstWheelModRegret)$coefficients[5,3]`)        | `r summary(firstWheelModRegret)$coefficients[6,1]` (`r summary(firstWheelModRegret)$coefficients[6,3]`)       | `r summary(firstWheelModRegret)$coefficients[7,1]` (`r summary(firstWheelModRegret)$coefficients[7,3]`)
+Regret for second wheel, coeff on first wheel   | `r summary(secondWheelModRegret)$coefficients[1,1]` (**`r summary(secondWheelModRegret)$coefficients[1,3]`**) | `r summary(secondWheelModRegret)$coefficients[2,1]` (`r summary(secondWheelModRegret)$coefficients[2,3]`)        | `r summary(secondWheelModRegret)$coefficients[3,1]` (`r summary(secondWheelModRegret)$coefficients[3,3]`)       | `r summary(secondWheelModRegret)$coefficients[4,1]` (`r summary(secondWheelModRegret)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(secondWheelModRegret)$coefficients[5,1]` (**`r summary(secondWheelModRegret)$coefficients[5,3]`**)        | `r summary(secondWheelModRegret)$coefficients[6,1]` (**`r summary(secondWheelModRegret)$coefficients[6,3]`**)       | `r summary(secondWheelModRegret)$coefficients[7,1]` (`r summary(secondWheelModRegret)$coefficients[7,3]`)
+
+
+
+```{r v61-plotting, echo=FALSE, fig.height=5, fig.width=8.5}
+firstWheelModGraphDF = data.frame(Emotion = factor(c(rep("Happy",6),rep("Content",6),rep("Relief",6),
+                                                     rep("Sad",6),rep("Disappointed",6),rep("Regret",6)),
+                                               levels=c("Happy", "Content", "Relief", 
+                                                        "Sad", "Disappointed", "Regret")),
+                              CoefficientType = factor(rep(c("Win", "PE", "absPE", 
+                                                             "Win", "PE", "absPE"),6),
+                                                       levels=c("Win", "PE", "absPE")),
+                              EmotionForWhichWheel = rep("FirstWheel",36),
+                              FirstWheel = factor(rep(c("Yes","Yes","Yes","No","No","No"),6),
+                                                  levels=c("Yes","No")),
+                              Value = c(summary(firstWheelModHappy)$coeff[2,1],
+                                        summary(firstWheelModHappy)$coeff[3,1],
+                                        summary(firstWheelModHappy)$coeff[4,1],
+                                        summary(firstWheelModHappy)$coeff[5,1],
+                                        summary(firstWheelModHappy)$coeff[6,1],
+                                        summary(firstWheelModHappy)$coeff[7,1],
+                                        summary(firstWheelModContent)$coeff[2,1],
+                                        summary(firstWheelModContent)$coeff[3,1],
+                                        summary(firstWheelModContent)$coeff[4,1],
+                                        summary(firstWheelModContent)$coeff[5,1],
+                                        summary(firstWheelModContent)$coeff[6,1],
+                                        summary(firstWheelModContent)$coeff[7,1],
+                                        summary(firstWheelModRelief)$coeff[2,1],
+                                        summary(firstWheelModRelief)$coeff[3,1],
+                                        summary(firstWheelModRelief)$coeff[4,1],
+                                        summary(firstWheelModRelief)$coeff[5,1],
+                                        summary(firstWheelModRelief)$coeff[6,1],
+                                        summary(firstWheelModRelief)$coeff[7,1],
+                                        summary(firstWheelModSad)$coeff[2,1],
+                                        summary(firstWheelModSad)$coeff[3,1],
+                                        summary(firstWheelModSad)$coeff[4,1],
+                                        summary(firstWheelModSad)$coeff[5,1],
+                                        summary(firstWheelModSad)$coeff[6,1],
+                                        summary(firstWheelModSad)$coeff[7,1],
+                                        summary(firstWheelModDisapp)$coeff[2,1],
+                                        summary(firstWheelModDisapp)$coeff[3,1],
+                                        summary(firstWheelModDisapp)$coeff[4,1],
+                                        summary(firstWheelModDisapp)$coeff[5,1],
+                                        summary(firstWheelModDisapp)$coeff[6,1],
+                                        summary(firstWheelModDisapp)$coeff[7,1],
+                                        summary(firstWheelModRegret)$coeff[2,1],
+                                        summary(firstWheelModRegret)$coeff[3,1],
+                                        summary(firstWheelModRegret)$coeff[4,1],
+                                        summary(firstWheelModRegret)$coeff[5,1],
+                                        summary(firstWheelModRegret)$coeff[6,1],
+                                        summary(firstWheelModRegret)$coeff[7,1]
+                                        ),
+                              se = c(summary(firstWheelModHappy)$coeff[2,2],
+                                     summary(firstWheelModHappy)$coeff[3,2],
+                                     summary(firstWheelModHappy)$coeff[4,2],
+                                     summary(firstWheelModHappy)$coeff[5,2],
+                                     summary(firstWheelModHappy)$coeff[6,2],
+                                     summary(firstWheelModHappy)$coeff[7,2],
+                                     summary(firstWheelModContent)$coeff[2,2],
+                                     summary(firstWheelModContent)$coeff[3,2],
+                                     summary(firstWheelModContent)$coeff[4,2],
+                                     summary(firstWheelModContent)$coeff[5,2],
+                                     summary(firstWheelModContent)$coeff[6,2],
+                                     summary(firstWheelModContent)$coeff[7,2],
+                                     summary(firstWheelModRelief)$coeff[2,2],
+                                     summary(firstWheelModRelief)$coeff[3,2],
+                                     summary(firstWheelModRelief)$coeff[4,2],
+                                     summary(firstWheelModRelief)$coeff[5,2],
+                                     summary(firstWheelModRelief)$coeff[6,2],
+                                     summary(firstWheelModRelief)$coeff[7,2],
+                                     summary(firstWheelModSad)$coeff[2,2],
+                                     summary(firstWheelModSad)$coeff[3,2],
+                                     summary(firstWheelModSad)$coeff[4,2],
+                                     summary(firstWheelModSad)$coeff[5,2],
+                                     summary(firstWheelModSad)$coeff[6,2],
+                                     summary(firstWheelModSad)$coeff[7,2],
+                                     summary(firstWheelModDisapp)$coeff[2,2],
+                                     summary(firstWheelModDisapp)$coeff[3,2],
+                                     summary(firstWheelModDisapp)$coeff[4,2],
+                                     summary(firstWheelModDisapp)$coeff[5,2],
+                                     summary(firstWheelModDisapp)$coeff[6,2],
+                                     summary(firstWheelModDisapp)$coeff[7,2],
+                                     summary(firstWheelModRegret)$coeff[2,2],
+                                     summary(firstWheelModRegret)$coeff[3,2],
+                                     summary(firstWheelModRegret)$coeff[4,2],
+                                     summary(firstWheelModRegret)$coeff[5,2],
+                                     summary(firstWheelModRegret)$coeff[6,2],
+                                     summary(firstWheelModRegret)$coeff[7,2]
+                                     ))
+
+secondWheelModGraphDF = data.frame(Emotion = factor(c(rep("Happy",6),rep("Content",6),rep("Relief",6),
+                                                     rep("Sad",6),rep("Disappointed",6),rep("Regret",6)),
+                                               levels=c("Happy", "Content", "Relief", 
+                                                        "Sad", "Disappointed", "Regret")),
+                              CoefficientType = factor(rep(c("Win", "PE", "absPE", 
+                                                             "Win", "PE", "absPE"),6),
+                                                       levels=c("Win", "PE", "absPE")),
+                              EmotionForWhichWheel = rep("SecondWheel",36),
+                              FirstWheel = factor(rep(c("Yes","Yes","Yes","No","No","No"),6),
+                                                  levels=c("Yes","No")),
+                              Value = c(summary(secondWheelModHappy)$coeff[2,1],
+                                        summary(secondWheelModHappy)$coeff[3,1],
+                                        summary(secondWheelModHappy)$coeff[4,1],
+                                        summary(secondWheelModHappy)$coeff[5,1],
+                                        summary(secondWheelModHappy)$coeff[6,1],
+                                        summary(secondWheelModHappy)$coeff[7,1],
+                                        summary(secondWheelModContent)$coeff[2,1],
+                                        summary(secondWheelModContent)$coeff[3,1],
+                                        summary(secondWheelModContent)$coeff[4,1],
+                                        summary(secondWheelModContent)$coeff[5,1],
+                                        summary(secondWheelModContent)$coeff[6,1],
+                                        summary(secondWheelModContent)$coeff[7,1],
+                                        summary(secondWheelModRelief)$coeff[2,1],
+                                        summary(secondWheelModRelief)$coeff[3,1],
+                                        summary(secondWheelModRelief)$coeff[4,1],
+                                        summary(secondWheelModRelief)$coeff[5,1],
+                                        summary(secondWheelModRelief)$coeff[6,1],
+                                        summary(secondWheelModRelief)$coeff[7,1],
+                                        summary(secondWheelModSad)$coeff[2,1],
+                                        summary(secondWheelModSad)$coeff[3,1],
+                                        summary(secondWheelModSad)$coeff[4,1],
+                                        summary(secondWheelModSad)$coeff[5,1],
+                                        summary(secondWheelModSad)$coeff[6,1],
+                                        summary(secondWheelModSad)$coeff[7,1],
+                                        summary(secondWheelModDisapp)$coeff[2,1],
+                                        summary(secondWheelModDisapp)$coeff[3,1],
+                                        summary(secondWheelModDisapp)$coeff[4,1],
+                                        summary(secondWheelModDisapp)$coeff[5,1],
+                                        summary(secondWheelModDisapp)$coeff[6,1],
+                                        summary(secondWheelModDisapp)$coeff[7,1],
+                                        summary(secondWheelModRegret)$coeff[2,1],
+                                        summary(secondWheelModRegret)$coeff[3,1],
+                                        summary(secondWheelModRegret)$coeff[4,1],
+                                        summary(secondWheelModRegret)$coeff[5,1],
+                                        summary(secondWheelModRegret)$coeff[6,1],
+                                        summary(secondWheelModRegret)$coeff[7,1]
+                                        ),
+                              se = c(summary(secondWheelModHappy)$coeff[2,2],
+                                     summary(secondWheelModHappy)$coeff[3,2],
+                                     summary(secondWheelModHappy)$coeff[4,2],
+                                     summary(secondWheelModHappy)$coeff[5,2],
+                                     summary(secondWheelModHappy)$coeff[6,2],
+                                     summary(secondWheelModHappy)$coeff[7,2],
+                                     summary(secondWheelModContent)$coeff[2,2],
+                                     summary(secondWheelModContent)$coeff[3,2],
+                                     summary(secondWheelModContent)$coeff[4,2],
+                                     summary(secondWheelModContent)$coeff[5,2],
+                                     summary(secondWheelModContent)$coeff[6,2],
+                                     summary(secondWheelModContent)$coeff[7,2],
+                                     summary(secondWheelModRelief)$coeff[2,2],
+                                     summary(secondWheelModRelief)$coeff[3,2],
+                                     summary(secondWheelModRelief)$coeff[4,2],
+                                     summary(secondWheelModRelief)$coeff[5,2],
+                                     summary(secondWheelModRelief)$coeff[6,2],
+                                     summary(secondWheelModRelief)$coeff[7,2],
+                                     summary(secondWheelModSad)$coeff[2,2],
+                                     summary(secondWheelModSad)$coeff[3,2],
+                                     summary(secondWheelModSad)$coeff[4,2],
+                                     summary(secondWheelModSad)$coeff[5,2],
+                                     summary(secondWheelModSad)$coeff[6,2],
+                                     summary(secondWheelModSad)$coeff[7,2],
+                                     summary(secondWheelModDisapp)$coeff[2,2],
+                                     summary(secondWheelModDisapp)$coeff[3,2],
+                                     summary(secondWheelModDisapp)$coeff[4,2],
+                                     summary(secondWheelModDisapp)$coeff[5,2],
+                                     summary(secondWheelModDisapp)$coeff[6,2],
+                                     summary(secondWheelModDisapp)$coeff[7,2],
+                                     summary(secondWheelModRegret)$coeff[2,2],
+                                     summary(secondWheelModRegret)$coeff[3,2],
+                                     summary(secondWheelModRegret)$coeff[4,2],
+                                     summary(secondWheelModRegret)$coeff[5,2],
+                                     summary(secondWheelModRegret)$coeff[6,2],
+                                     summary(secondWheelModRegret)$coeff[7,2]
+                                     ))
+
+wheelModGraphDF = rbind(firstWheelModGraphDF, secondWheelModGraphDF)
+wheelModGraphDF$CI = 1.96*wheelModGraphDF$se
+
+ggplot(wheelModGraphDF, aes(x=CoefficientType, y=Value, fill=FirstWheel)) +
+  geom_bar(stat="identity", position=position_dodge(), colour="black") +
+  geom_errorbar(aes(ymin=Value-CI, ymax=Value+CI), size=.3, width=.2, position=position_dodge(.9)) + 
+   scale_fill_brewer(palette="Set2", name="WheelCoefficient", breaks=c("Yes", "No"), labels=c("First", "Second")) +
+  #scale_fill_manual(values=cbPal) +
+  facet_grid(EmotionForWhichWheel ~ Emotion) + xlab("Feature type") + ylab("Value of Coefficient") + my_default_theme + theme(legend.position="top")
+
+#ggplotting... 
+#scale_fill_brewer(palette="Set1")
+
+
+# bothWheelModGraphDF = data.frame(Emotion = factor(c(rep("Happy",6),rep("Content",6),rep("Relief",6),
+#                                                      rep("Sad",6),rep("Disappointed",6),rep("Regret",6)),
+#                                                levels=c("Happy", "Content", "Relief", 
+#                                                         "Sad", "Disappointed", "Regret")),
+#                               CoefficientType = factor(rep(c("Win", "PE", "absPE", 
+#                                                              "Win", "PE", "absPE"),6),
+#                                                        levels=c("Win", "PE", "absPE")),
+#                               EmotionForWhichWheel = rep("Overall",36),
+#                               FirstWheel = factor(rep(c("Yes","Yes","Yes","No","No","No"),6),
+#                                                   levels=c("Yes","No")),
+#                               Value = c(summary(bothWheelModHappy)$coeff[2,1],
+#                                         summary(bothWheelModHappy)$coeff[3,1],
+#                                         summary(bothWheelModHappy)$coeff[4,1],
+#                                         summary(bothWheelModHappy)$coeff[5,1],
+#                                         summary(bothWheelModHappy)$coeff[6,1],
+#                                         summary(bothWheelModHappy)$coeff[7,1],
+#                                         summary(bothWheelModContent)$coeff[2,1],
+#                                         summary(bothWheelModContent)$coeff[3,1],
+#                                         summary(bothWheelModContent)$coeff[4,1],
+#                                         summary(bothWheelModContent)$coeff[5,1],
+#                                         summary(bothWheelModContent)$coeff[6,1],
+#                                         summary(bothWheelModContent)$coeff[7,1],
+#                                         summary(bothWheelModRelief)$coeff[2,1],
+#                                         summary(bothWheelModRelief)$coeff[3,1],
+#                                         summary(bothWheelModRelief)$coeff[4,1],
+#                                         summary(bothWheelModRelief)$coeff[5,1],
+#                                         summary(bothWheelModRelief)$coeff[6,1],
+#                                         summary(bothWheelModRelief)$coeff[7,1],
+#                                         summary(bothWheelModSad)$coeff[2,1],
+#                                         summary(bothWheelModSad)$coeff[3,1],
+#                                         summary(bothWheelModSad)$coeff[4,1],
+#                                         summary(bothWheelModSad)$coeff[5,1],
+#                                         summary(bothWheelModSad)$coeff[6,1],
+#                                         summary(bothWheelModSad)$coeff[7,1],
+#                                         summary(bothWheelModDisapp)$coeff[2,1],
+#                                         summary(bothWheelModDisapp)$coeff[3,1],
+#                                         summary(bothWheelModDisapp)$coeff[4,1],
+#                                         summary(bothWheelModDisapp)$coeff[5,1],
+#                                         summary(bothWheelModDisapp)$coeff[6,1],
+#                                         summary(bothWheelModDisapp)$coeff[7,1],
+#                                         summary(bothWheelModRegret)$coeff[2,1],
+#                                         summary(bothWheelModRegret)$coeff[3,1],
+#                                         summary(bothWheelModRegret)$coeff[4,1],
+#                                         summary(bothWheelModRegret)$coeff[5,1],
+#                                         summary(bothWheelModRegret)$coeff[6,1],
+#                                         summary(bothWheelModRegret)$coeff[7,1]
+#                                         ),
+#                               se = c(summary(bothWheelModHappy)$coeff[2,2],
+#                                      summary(bothWheelModHappy)$coeff[3,2],
+#                                      summary(bothWheelModHappy)$coeff[4,2],
+#                                      summary(bothWheelModHappy)$coeff[5,2],
+#                                      summary(bothWheelModHappy)$coeff[6,2],
+#                                      summary(bothWheelModHappy)$coeff[7,2],
+#                                      summary(bothWheelModContent)$coeff[2,2],
+#                                      summary(bothWheelModContent)$coeff[3,2],
+#                                      summary(bothWheelModContent)$coeff[4,2],
+#                                      summary(bothWheelModContent)$coeff[5,2],
+#                                      summary(bothWheelModContent)$coeff[6,2],
+#                                      summary(bothWheelModContent)$coeff[7,2],
+#                                      summary(bothWheelModRelief)$coeff[2,2],
+#                                      summary(bothWheelModRelief)$coeff[3,2],
+#                                      summary(bothWheelModRelief)$coeff[4,2],
+#                                      summary(bothWheelModRelief)$coeff[5,2],
+#                                      summary(bothWheelModRelief)$coeff[6,2],
+#                                      summary(bothWheelModRelief)$coeff[7,2],
+#                                      summary(bothWheelModSad)$coeff[2,2],
+#                                      summary(bothWheelModSad)$coeff[3,2],
+#                                      summary(bothWheelModSad)$coeff[4,2],
+#                                      summary(bothWheelModSad)$coeff[5,2],
+#                                      summary(bothWheelModSad)$coeff[6,2],
+#                                      summary(bothWheelModSad)$coeff[7,2],
+#                                      summary(bothWheelModDisapp)$coeff[2,2],
+#                                      summary(bothWheelModDisapp)$coeff[3,2],
+#                                      summary(bothWheelModDisapp)$coeff[4,2],
+#                                      summary(bothWheelModDisapp)$coeff[5,2],
+#                                      summary(bothWheelModDisapp)$coeff[6,2],
+#                                      summary(bothWheelModDisapp)$coeff[7,2],
+#                                      summary(bothWheelModRegret)$coeff[2,2],
+#                                      summary(bothWheelModRegret)$coeff[3,2],
+#                                      summary(bothWheelModRegret)$coeff[4,2],
+#                                      summary(bothWheelModRegret)$coeff[5,2],
+#                                      summary(bothWheelModRegret)$coeff[6,2],
+#                                      summary(bothWheelModRegret)$coeff[7,2]
+#                                      ))
+# 
+# wheelModGraphDF2 = rbind(firstWheelModGraphDF, secondWheelModGraphDF, bothWheelModGraphDF)
+# wheelModGraphDF2$CI = 1.96*wheelModGraphDF2$se
+# 
+# ggplot(wheelModGraphDF2, aes(x=CoefficientType, y=Value, fill=FirstWheel)) +
+#   geom_bar(stat="identity", position=position_dodge(), colour="black") +
+#   geom_errorbar(aes(ymin=Value-CI, ymax=Value+CI), size=.3, width=.2, position=position_dodge(.9)) + 
+#    scale_fill_brewer(palette="Set2", name="WheelCoefficient", breaks=c("Yes", "No"), labels=c("First", "Second")) +
+#   #scale_fill_manual(values=cbPal) +
+#   facet_grid(EmotionForWhichWheel ~ Emotion) + xlab("Feature type") + ylab("Value of coefficient") + my_default_theme + theme(legend.position="top")
+
+
+
+```
+
+
+```{r v61-individual-emotion-model-stats-old, eval=FALSE, echo=FALSE}
+# # Stat tests: use a restricted-full model comparison across all emotions.
+# v61data_melt = melt(v61data, id.vars = c("workerid", "spinnerID_1", "spinnerID_2", 
+#                                          "win_1", "PE_1", "absPE_1", "win_2", "PE_2", "absPE_2"),
+#                     measure.vars = c("happy1", "content1", "relief1", "sad1", "disapp1", "regret1"),
+#                     variable.name = "Emotion", value.name="Value")
+# v61data_melt$Emotion = factor(v61data_melt$Emotion, levels = c("happy1", "content1", "relief1",
+#                                                                "sad1", "disapp1", "regret1"),
+#                               labels = c("Happy", "Content", "Relief", "Sad", "Disapp", "Regret"))
+# v61data_melt = rbind(v61data_melt, v61data_melt)
+# v61data_melt$FirstEmotion = c(rep(1,nrow(v61data_melt)/2),rep(0,nrow(v61data_melt)/2))
+# 
+# v61data_melt$Value = c(
+#   melt(v61data, id.vars = c("workerid", "spinnerID_1", "spinnerID_2", 
+#                                          "win_1", "PE_1", "absPE_1", "win_2", "PE_2", "absPE_2"),
+#                     measure.vars = c("happy1", "content1", "relief1", "sad1", "disapp1", "regret1"),
+#                     variable.name = "Emotion", value.name="Emotion")$Emotion1,
+#   melt(v61data, id.vars = c("workerid", "spinnerID_1", "spinnerID_2",
+#                                                   "win_1", "PE_1", "absPE_1", "win_2", "PE_2", "absPE_2"),
+#                     measure.vars = c("happy2", "content2", "relief2", "sad2", "disapp2", "regret2"),
+#                     variable.name = "Emotion", value.name="Emotion2")$Emotion2
+#   )
+# 
+# v61data_melt$SameWheelWin = (v61data_melt$FirstEmotion==1)*v61data_melt$win_1 + (v61data_melt$FirstEmotion==0)*v61data_melt$win_2
+# v61data_melt$SameWheelPE = (v61data_melt$FirstEmotion==1)*v61data_melt$PE_1 + (v61data_melt$FirstEmotion==0)*v61data_melt$PE_2
+# v61data_melt$SameWheelAbsPE = (v61data_melt$FirstEmotion==1)*v61data_melt$absPE_1 + (v61data_melt$FirstEmotion==0)*v61data_melt$absPE_2
+# v61data_melt$OtherWheelWin = (v61data_melt$FirstEmotion==0)*v61data_melt$win_1 + (v61data_melt$FirstEmotion==1)*v61data_melt$win_2
+# v61data_melt$OtherWheelPE = (v61data_melt$FirstEmotion==0)*v61data_melt$PE_1 + (v61data_melt$FirstEmotion==1)*v61data_melt$PE_2
+# v61data_melt$OtherWheelAbsPE = (v61data_melt$FirstEmotion==0)*v61data_melt$absPE_1 + (v61data_melt$FirstEmotion==1)*v61data_melt$absPE_2
+# 
+# wheelModelFull = lmer(Value ~ (SameWheelWin + SameWheelPE + SameWheelAbsPE + OtherWheelWin + OtherWheelPE + OtherWheelAbsPE)*Emotion*FirstEmotion + (1|Emotion) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data_melt)
+# wheelModelFullr = lmer(Value ~ (SameWheelWin + SameWheelPE + SameWheelAbsPE + OtherWheelWin + OtherWheelPE)*Emotion*FirstEmotion + (1|Emotion) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data_melt)
+# 
+# wheelModelFullr = lmer(Value ~ (SameWheelWin + SameWheelPE + SameWheelAbsPE)*Emotion*FirstEmotion + (1|Emotion) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data_melt)
+# anova(wheelModelFull, wheelModelFullr)
+# 
+# 
+# # v61data_melt$Emotion3 = melt(v61data, id.vars = c("workerid", "spinnerID_1", "spinnerID_2",
+# #                                                   "win_1", "PE_1", "absPE_1", "win_2", "PE_2", "absPE_2"),
+# #                     measure.vars = c("happy3", "content3", "relief3", "sad3", "disapp3", "regret3"),
+# #                     variable.name = "Emotion", value.name="Emotion3")$Emotion3
+# 
+# #v61data_melt$Emotion12 = v61data_melt$Emotion1 + v61data_melt$Emotion2
+# v61data_melt$Positive = 1 * (v61data_melt$Emotion=="Happy" | v61data_melt$Emotion=="Content" | v61data_melt$Emotion=="Relief")
+# 
+# 
+# 
+# wheelModelFull = lmer(Emotion1 ~ (win_1 + PE_1 + absPE_1 + win_2 + PE_2 + absPE_2)+Emotion + (1|Emotion) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data_melt)
+# # summary(wheelModelFull)
+# wheelModelFullr = lmer(Emotion1 ~ (win_1 + PE_1 + absPE_1 )+Emotion + (1|Emotion) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data_melt)
+# # summary(wheelModelFullr)
+# anova(wheelModelFull, wheelModelFullr)
+
+
+wheelModel_indiv = lmer(happy1 ~ (win_1 + PE_1 + absPE_1 + win_2 + PE_2 + absPE_2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModel_indivr = lmer(happy1 ~ (win_1 + PE_1 + absPE_1) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+anova(wheelModel_indiv, wheelModel_indivr)
+
+wheelModel_indiv = lmer(content1 ~ (win_1 + PE_1 + absPE_1 + win_2 + PE_2 + absPE_2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModel_indivr = lmer(content1 ~ (win_1 + PE_1 + absPE_1) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+anova(wheelModel_indiv, wheelModel_indivr)
+
+
+wheelModel_indiv = lmer(relief1 ~ (win_1 + PE_1 + absPE_1 + win_2 + PE_2 + absPE_2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModel_indivr = lmer(relief1 ~ (win_1 + PE_1 + absPE_1) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+anova(wheelModel_indiv, wheelModel_indivr)
+
+wheelModel_indiv = lmer(sad1 ~ (win_1 + PE_1 + absPE_1 + win_2 + PE_2 + absPE_2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModel_indivr = lmer(sad1 ~ (win_1 + PE_1 + absPE_1) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+anova(wheelModel_indiv, wheelModel_indivr)
+
+wheelModel_indiv = lmer(disapp1 ~ (win_1 + PE_1 + absPE_1 + win_2 + PE_2 + absPE_2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModel_indivr = lmer(disapp1 ~ (win_1 + PE_1 + absPE_1) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+anova(wheelModel_indiv, wheelModel_indivr)
+
+
+wheelModel_indiv = lmer(regret1 ~ (win_1 + PE_1 + absPE_1 + win_2 + PE_2 + absPE_2) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModel_indivr = lmer(regret1 ~ (win_1 + PE_1 + absPE_1) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+anova(wheelModel_indiv, wheelModel_indivr)
+
+
+```
+
+
+```{r v61-individual-emotion-model-stats, eval=TRUE, echo=FALSE}
+# Stats that I reported in the paper. Test whether "otherWin", "otherPE", "otherAbsPE" affects across all emotions.
+
+collapsedDF = data.frame(workerid = c(v61data$workerid, v61data$workerid),
+                         askedFirst = c(v61data$askAboutLeftWheelFirst, 1-v61data$askAboutLeftWheelFirst),
+                         spinnerID = c(v61data$spinnerID_1, v61data$spinnerID_2),
+                         otherSpinnerID = c(v61data$spinnerID_2, v61data$spinnerID_1),
+                         win = c(v61data$win_1, v61data$win_2),
+                         otherWin = c(v61data$win_2, v61data$win_1),
+                         PE = c(v61data$PE_1, v61data$PE_2),
+                         otherPE = c(v61data$PE_2, v61data$PE_1),
+                         absPE = c(v61data$absPE_1, v61data$absPE_2),
+                         otherAbsPE = c(v61data$absPE_2, v61data$absPE_1),
+                         happy = c(v61data$happy1, v61data$happy2),
+                         content = c(v61data$content1, v61data$content2),
+                         relief = c(v61data$relief1, v61data$relief2),
+                         sad = c(v61data$sad1, v61data$sad2),
+                         disapp = c(v61data$disapp1, v61data$disapp2),
+                         regret = c(v61data$regret1, v61data$regret2))
+
+# collapsedModHappy = lmer(happy ~ (win + PE + absPE) + (otherWin + otherPE + otherAbsPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# collapsedModHappyR = lmer(happy ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# anova(collapsedModHappy, collapsedModHappyR)
+# 
+# collapsedModContent = lmer(content ~ (win + PE + absPE) + (otherWin + otherPE + otherAbsPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# collapsedModContentR = lmer(content ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# anova(collapsedModContent, collapsedModContentR)
+# 
+# collapsedModRelief = lmer(relief ~ (win + PE + absPE) + (otherWin + otherPE + otherAbsPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# collapsedModReliefR = lmer(relief ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# anova(collapsedModRelief, collapsedModReliefR)
+# 
+# collapsedModSad = lmer(sad ~ (win + PE + absPE) + (otherWin + otherPE + otherAbsPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# collapsedModSadR = lmer(sad ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# anova(collapsedModSad, collapsedModSadR)
+# 
+# collapsedModDisapp = lmer(disapp ~ (win + PE + absPE) + (otherWin + otherPE + otherAbsPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# collapsedModDisappR = lmer(disapp ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# anova(collapsedModDisapp, collapsedModDisappR)
+# 
+# collapsedModRegret = lmer(regret ~ (win + PE + absPE) + (otherWin + otherPE + otherAbsPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# collapsedModRegretR = lmer(regret ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+# anova(collapsedModRegret, collapsedModRegretR)
+
+
+collapsedDFMelt = melt(collapsedDF, measure.vars = c("happy", "content", "relief", "sad", "disapp", "regret"),
+                       variable.name = "Emotion", value.name = "Value")
+collapsedModFull = lmer(Value ~ (win + PE + absPE) + (otherWin + otherPE + otherAbsPE) + (1|Emotion) + (1|spinnerID) + (1|workerid), collapsedDFMelt)
+collapsedModFullR = lmer(Value ~ (win + PE + absPE) + (1|Emotion) + (1|spinnerID) + (1|workerid), collapsedDFMelt)
+anova(collapsedModFull, collapsedModFullR)
+
+collapsedModFullRR = lmer(Value ~ (win + PE) + (1|Emotion) + (1|spinnerID) + (1|workerid), collapsedDFMelt)
+anova(collapsedModFullR, collapsedModFullRR)
+
+
+# Testing for absPE
+collapsedModHappy = lmer(happy ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModHappyR = lmer(happy ~ (win + PE) + (1|spinnerID) + (1|workerid), collapsedDF)
+anova(collapsedModHappy, collapsedModHappyR)
+
+collapsedModContent = lmer(content ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModContentR = lmer(content ~ (win + PE) + (1|spinnerID) + (1|workerid), collapsedDF)
+anova(collapsedModContent, collapsedModContentR)
+
+collapsedModRelief = lmer(relief ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModReliefR = lmer(relief ~ (win + PE) + (1|spinnerID) + (1|workerid), collapsedDF)
+anova(collapsedModRelief, collapsedModReliefR)
+
+collapsedModSad = lmer(sad ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModSadR = lmer(sad ~ (win + PE) + (1|spinnerID) + (1|workerid), collapsedDF)
+anova(collapsedModSad, collapsedModSadR)
+
+collapsedModDisapp = lmer(disapp ~ (win + PE + absPE) + (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModDisappR = lmer(disapp ~ (win + PE) + (1|spinnerID) + (1|workerid), collapsedDF)
+anova(collapsedModDisapp, collapsedModDisappR)
+
+collapsedModRegret = lmer(regret ~ (win + PE + absPE)+ (1|spinnerID) + (1|workerid), collapsedDF)
+collapsedModRegretR = lmer(regret ~ (win + PE) + (1|spinnerID) + (1|workerid), collapsedDF)
+anova(collapsedModRegret, collapsedModRegretR)
+
+
+
+
+
+
+```
+
+
+
+
+### Overall emotion
+
+If we now look at the overall emotion attributed
+
+Emotion (t value in parenthesis)          | Main Effect   | Coeff on Win  | Coeff on PE   | Coeff on absPE
+-------------     | ------------- | ------------- | ------------- | -------------
+Happy overall, coeffs on first wheel   | `r summary(bothWheelModHappy)$coefficients[1,1]` (**`r summary(bothWheelModHappy)$coefficients[1,3]`**) | `r summary(bothWheelModHappy)$coefficients[2,1]` (**`r summary(bothWheelModHappy)$coefficients[2,3]`**)        | `r summary(bothWheelModHappy)$coefficients[3,1]` (`r summary(bothWheelModHappy)$coefficients[3,3]`)       | `r summary(bothWheelModHappy)$coefficients[4,1]` (`r summary(bothWheelModHappy)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(bothWheelModHappy)$coefficients[5,1]` (**`r summary(bothWheelModHappy)$coefficients[5,3]`**)        | `r summary(bothWheelModHappy)$coefficients[6,1]` (**`r summary(bothWheelModHappy)$coefficients[6,3]`**)       | `r summary(bothWheelModHappy)$coefficients[7,1]` (`r summary(bothWheelModHappy)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Content overall, coeffs on first wheel   | `r summary(bothWheelModContent)$coefficients[1,1]` (**`r summary(bothWheelModContent)$coefficients[1,3]`**) | `r summary(bothWheelModContent)$coefficients[2,1]` (**`r summary(bothWheelModContent)$coefficients[2,3]`**)        | `r summary(bothWheelModContent)$coefficients[3,1]` (`r summary(bothWheelModContent)$coefficients[3,3]`)       | `r summary(bothWheelModContent)$coefficients[4,1]` (`r summary(bothWheelModContent)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(bothWheelModContent)$coefficients[5,1]` (**`r summary(bothWheelModContent)$coefficients[5,3]`**)        | `r summary(bothWheelModContent)$coefficients[6,1]` (**`r summary(bothWheelModContent)$coefficients[6,3]`**)       | `r summary(bothWheelModContent)$coefficients[7,1]` (`r summary(bothWheelModContent)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Relief overall, coeffs on first wheel   | `r summary(bothWheelModRelief)$coefficients[1,1]` (**`r summary(bothWheelModRelief)$coefficients[1,3]`**) | `r summary(bothWheelModRelief)$coefficients[2,1]` (**`r summary(bothWheelModRelief)$coefficients[2,3]`**)        | `r summary(bothWheelModRelief)$coefficients[3,1]` (`r summary(bothWheelModRelief)$coefficients[3,3]`)       | `r summary(bothWheelModRelief)$coefficients[4,1]` (`r summary(bothWheelModRelief)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(bothWheelModRelief)$coefficients[5,1]` (`r summary(bothWheelModRelief)$coefficients[5,3]`)        | `r summary(bothWheelModRelief)$coefficients[6,1]` (**`r summary(bothWheelModRelief)$coefficients[6,3]`**)       | `r summary(bothWheelModRelief)$coefficients[7,1]` (`r summary(bothWheelModRelief)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Sad overall, coeffs on first wheel   | `r summary(bothWheelModSad)$coefficients[1,1]` (**`r summary(bothWheelModSad)$coefficients[1,3]`**) | `r summary(bothWheelModSad)$coefficients[2,1]` (**`r summary(bothWheelModSad)$coefficients[2,3]`**)        | `r summary(bothWheelModSad)$coefficients[3,1]` (`r summary(bothWheelModSad)$coefficients[3,3]`)       | `r summary(bothWheelModSad)$coefficients[4,1]` (`r summary(bothWheelModSad)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(bothWheelModSad)$coefficients[5,1]` (**`r summary(bothWheelModSad)$coefficients[5,3]`**)        | `r summary(bothWheelModSad)$coefficients[6,1]` (`r summary(bothWheelModSad)$coefficients[6,3]`)       | `r summary(bothWheelModSad)$coefficients[7,1]` (`r summary(bothWheelModSad)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Regret overall, coeffs on first wheel   | `r summary(bothWheelModRegret)$coefficients[1,1]` (**`r summary(bothWheelModRegret)$coefficients[1,3]`**) | `r summary(bothWheelModRegret)$coefficients[2,1]` (**`r summary(bothWheelModRegret)$coefficients[2,3]`**)        | `r summary(bothWheelModRegret)$coefficients[3,1]` (`r summary(bothWheelModRegret)$coefficients[3,3]`)       | `r summary(bothWheelModRegret)$coefficients[4,1]` (`r summary(bothWheelModRegret)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(bothWheelModRegret)$coefficients[5,1]` (**`r summary(bothWheelModRegret)$coefficients[5,3]`**)        | `r summary(bothWheelModRegret)$coefficients[6,1]` (`r summary(bothWheelModRegret)$coefficients[6,3]`)       | `r summary(bothWheelModRegret)$coefficients[7,1]` (`r summary(bothWheelModRegret)$coefficients[7,3]`)
+--- | --- | --- | --- | ---
+Disapp overall, coeffs on first wheel   | `r summary(bothWheelModDisapp)$coefficients[1,1]` (**`r summary(bothWheelModDisapp)$coefficients[1,3]`**) | `r summary(bothWheelModDisapp)$coefficients[2,1]` (**`r summary(bothWheelModDisapp)$coefficients[2,3]`**)        | `r summary(bothWheelModDisapp)$coefficients[3,1]` (`r summary(bothWheelModDisapp)$coefficients[3,3]`)       | `r summary(bothWheelModDisapp)$coefficients[4,1]` (`r summary(bothWheelModDisapp)$coefficients[4,3]`)
+ (coeffs on second wheel)   | --- | `r summary(bothWheelModDisapp)$coefficients[5,1]` (**`r summary(bothWheelModDisapp)$coefficients[5,3]`**)        | `r summary(bothWheelModDisapp)$coefficients[6,1]` (`r summary(bothWheelModDisapp)$coefficients[6,3]`)       | `r summary(bothWheelModDisapp)$coefficients[7,1]` (`r summary(bothWheelModDisapp)$coefficients[7,3]`)
+
+```{r echo=FALSE}
+
+v61data$combinedWin = v61data$win_1 + v61data$win_2
+v61data$combinedPE = v61data$PE_1 + v61data$PE_2
+v61data$combinedAbsPE = v61data$absPE_1 + v61data$absPE_2
+
+bothWheelModCombinedHappy   = lmer(happy3 ~ (combinedWin + combinedPE + combinedAbsPE) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModCombinedContent = lmer(content3 ~ (combinedWin + combinedPE + combinedAbsPE) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModCombinedRelief  = lmer(relief3 ~ (combinedWin + combinedPE + combinedAbsPE) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModCombinedSad     = lmer(sad3 ~ (combinedWin + combinedPE + combinedAbsPE) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModCombinedDisapp  = lmer(disapp3 ~ (combinedWin + combinedPE + combinedAbsPE) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+bothWheelModCombinedRegret  = lmer(regret3 ~ (combinedWin + combinedPE + combinedAbsPE) +
+                           (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+```
+
+If we make combined win, PE and absPE variables
+
+Emotion (t value in parenthesis)          | Main Effect   | Coeff on Win  | Coeff on PE   | Coeff on absPE
+-------------     | ------------- | ------------- | ------------- | -------------
+Happy overall, combined vars   | `r summary(bothWheelModCombinedHappy)$coefficients[1,1]` (**`r summary(bothWheelModCombinedHappy)$coefficients[1,3]`**) | `r summary(bothWheelModCombinedHappy)$coefficients[2,1]` (**`r summary(bothWheelModCombinedHappy)$coefficients[2,3]`**)        | `r summary(bothWheelModCombinedHappy)$coefficients[3,1]` (**`r summary(bothWheelModCombinedHappy)$coefficients[3,3]`**)       | `r summary(bothWheelModCombinedHappy)$coefficients[4,1]` (`r summary(bothWheelModCombinedHappy)$coefficients[4,3]`)
+Content overall, combined vars   | `r summary(bothWheelModCombinedContent)$coefficients[1,1]` (**`r summary(bothWheelModCombinedContent)$coefficients[1,3]`**) | `r summary(bothWheelModCombinedContent)$coefficients[2,1]` (**`r summary(bothWheelModCombinedContent)$coefficients[2,3]`**)        | `r summary(bothWheelModCombinedContent)$coefficients[3,1]` (`r summary(bothWheelModCombinedContent)$coefficients[3,3]`)       | `r summary(bothWheelModCombinedContent)$coefficients[4,1]` (`r summary(bothWheelModCombinedContent)$coefficients[4,3]`)
+Relief overall, combined vars   | `r summary(bothWheelModCombinedRelief)$coefficients[1,1]` (**`r summary(bothWheelModCombinedRelief)$coefficients[1,3]`**) | `r summary(bothWheelModCombinedRelief)$coefficients[2,1]` (**`r summary(bothWheelModCombinedRelief)$coefficients[2,3]`**)        | `r summary(bothWheelModCombinedRelief)$coefficients[3,1]` (`r summary(bothWheelModCombinedRelief)$coefficients[3,3]`)       | `r summary(bothWheelModCombinedRelief)$coefficients[4,1]` (`r summary(bothWheelModCombinedRelief)$coefficients[4,3]`)
+--- | --- | --- | --- | ---
+Sad overall, combined vars   | `r summary(bothWheelModCombinedSad)$coefficients[1,1]` (**`r summary(bothWheelModCombinedSad)$coefficients[1,3]`**) | `r summary(bothWheelModCombinedSad)$coefficients[2,1]` (**`r summary(bothWheelModCombinedSad)$coefficients[2,3]`**)        | `r summary(bothWheelModCombinedSad)$coefficients[3,1]` (`r summary(bothWheelModCombinedSad)$coefficients[3,3]`)       | `r summary(bothWheelModCombinedSad)$coefficients[4,1]` (`r summary(bothWheelModCombinedSad)$coefficients[4,3]`)
+Regret overall, combined vars   | `r summary(bothWheelModCombinedRegret)$coefficients[1,1]` (**`r summary(bothWheelModCombinedRegret)$coefficients[1,3]`**) | `r summary(bothWheelModCombinedRegret)$coefficients[2,1]` (**`r summary(bothWheelModCombinedRegret)$coefficients[2,3]`**)        | `r summary(bothWheelModCombinedRegret)$coefficients[3,1]` (`r summary(bothWheelModCombinedRegret)$coefficients[3,3]`)       | `r summary(bothWheelModCombinedRegret)$coefficients[4,1]` (`r summary(bothWheelModCombinedRegret)$coefficients[4,3]`)
+Disapp overall, combined vars   | `r summary(bothWheelModCombinedDisapp)$coefficients[1,1]` (**`r summary(bothWheelModCombinedDisapp)$coefficients[1,3]`**) | `r summary(bothWheelModCombinedDisapp)$coefficients[2,1]` (**`r summary(bothWheelModCombinedDisapp)$coefficients[2,3]`**)        | `r summary(bothWheelModCombinedDisapp)$coefficients[3,1]` (`r summary(bothWheelModCombinedDisapp)$coefficients[3,3]`)       | `r summary(bothWheelModCombinedDisapp)$coefficients[4,1]` (`r summary(bothWheelModCombinedDisapp)$coefficients[4,3]`)
+
+```{r v61-overall-emotion-model, echo=FALSE}
+
+wheelModelHappy = lmer(happy3 ~ happy1 + happy2 + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModelContent = lmer(content3 ~ content1 + content2 + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModelRelief = lmer(relief3 ~ relief1 + relief2 + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModelSad = lmer(sad3 ~ sad1 + sad2 + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModelDisapp = lmer(disapp3 ~ disapp1 + disapp2 + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+wheelModelRegret = lmer(regret3 ~ regret1 + regret2 + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data)
+
+
+# summary(wheelModelHappy)
+# summary(wheelModelContent)
+# summary(wheelModelRelief)
+# summary(wheelModelSad)
+# summary(wheelModelDisapp)
+# summary(wheelModelRegret)
+
+wheelModelGraphDF = data.frame(Emotion = factor(c(rep("Happy",2),rep("Content",2),rep("Relief",2),
+                                                     rep("Sad",2),rep("Disappointed",2),rep("Regret",2)),
+                                               levels=c("Happy", "Content", "Relief", 
+                                                        "Sad", "Disappointed", "Regret")),
+                              EmotionToWhichWheel = factor(rep(c("FirstWheel","SecondWheel"),6),
+                                                  levels=c("FirstWheel","SecondWheel")),
+                              earlierWheelShownFirst = rep(1,12),
+                              Value = c(summary(wheelModelHappy)$coeff[2,1],
+                                        summary(wheelModelHappy)$coeff[3,1],
+                                        summary(wheelModelContent)$coeff[2,1],
+                                        summary(wheelModelContent)$coeff[3,1],
+                                        summary(wheelModelRelief)$coeff[2,1],
+                                        summary(wheelModelRelief)$coeff[3,1],
+                                        summary(wheelModelSad)$coeff[2,1],
+                                        summary(wheelModelSad)$coeff[3,1],
+                                        summary(wheelModelDisapp)$coeff[2,1],
+                                        summary(wheelModelDisapp)$coeff[3,1],
+                                        summary(wheelModelRegret)$coeff[2,1],
+                                        summary(wheelModelRegret)$coeff[3,1]),
+                              CI = 1.96* c(summary(wheelModelHappy)$coeff[2,2],
+                                        summary(wheelModelHappy)$coeff[3,2],
+                                        summary(wheelModelContent)$coeff[2,2],
+                                        summary(wheelModelContent)$coeff[3,2],
+                                        summary(wheelModelRelief)$coeff[2,2],
+                                        summary(wheelModelRelief)$coeff[3,2],
+                                        summary(wheelModelSad)$coeff[2,2],
+                                        summary(wheelModelSad)$coeff[3,2],
+                                        summary(wheelModelDisapp)$coeff[2,2],
+                                        summary(wheelModelDisapp)$coeff[3,2],
+                                        summary(wheelModelRegret)$coeff[2,2],
+                                        summary(wheelModelRegret)$coeff[3,2])
+                              )
+
+ggplot(wheelModelGraphDF, aes(x=Emotion, fill=EmotionToWhichWheel, y=Value)) +
+  geom_bar(stat="identity", position=position_dodge(), colour="black") +
+  geom_errorbar(aes(ymin=Value-CI, ymax=Value+CI), size=.3, width=.2, position=position_dodge(.9)) + 
+  scale_fill_brewer(palette="Set2", name="WheelEmotion", breaks=c("FirstWheel", "SecondWheel"), labels=c("FirstWheel", "SecondWheel")) +
+  xlab("Emotion") + ylab("Value of Coefficient") + my_default_theme + theme(legend.position="top")
+
+# subset(wheelModelGraphDF, wheelModelGraphDF$EmotionToWhichWheel=="SecondWheel")$Value / subset(wheelModelGraphDF, wheelModelGraphDF$EmotionToWhichWheel=="FirstWheel")$Value
+# 
+# mean(subset(wheelModelGraphDF, wheelModelGraphDF$EmotionToWhichWheel=="SecondWheel")$Value / subset(wheelModelGraphDF, wheelModelGraphDF$EmotionToWhichWheel=="FirstWheel")$Value)
+
+```
+
+If we now use the emotions from the first two wheels to predict overall emotion
+
+Emotion (t value in parenthesis)          | Main Effect   | Coeff on first wheel emotion  | Coeff on second wheel emotion
+-------------     | ------------- | ------------- | ------------- 
+Happy overall   | `r summary(wheelModelHappy)$coefficients[1,1]` (**`r summary(wheelModelHappy)$coefficients[1,3]`**) | `r summary(wheelModelHappy)$coefficients[2,1]` (**`r summary(wheelModelHappy)$coefficients[2,3]`**)        | `r summary(wheelModelHappy)$coefficients[3,1]` (**`r summary(wheelModelHappy)$coefficients[3,3]`**)
+Content overall   | `r summary(wheelModelContent)$coefficients[1,1]` (**`r summary(wheelModelContent)$coefficients[1,3]`**) | `r summary(wheelModelContent)$coefficients[2,1]` (**`r summary(wheelModelContent)$coefficients[2,3]`**)        | `r summary(wheelModelContent)$coefficients[3,1]` (**`r summary(wheelModelContent)$coefficients[3,3]`**)
+Relief overall   | `r summary(wheelModelRelief)$coefficients[1,1]` (**`r summary(wheelModelRelief)$coefficients[1,3]`**) | `r summary(wheelModelRelief)$coefficients[2,1]` (**`r summary(wheelModelRelief)$coefficients[2,3]`**)        | `r summary(wheelModelRelief)$coefficients[3,1]` (**`r summary(wheelModelRelief)$coefficients[3,3]`**)
+Sad overall   | `r summary(wheelModelSad)$coefficients[1,1]` (**`r summary(wheelModelSad)$coefficients[1,3]`**) | `r summary(wheelModelSad)$coefficients[2,1]` (**`r summary(wheelModelSad)$coefficients[2,3]`**)        | `r summary(wheelModelSad)$coefficients[3,1]` (**`r summary(wheelModelSad)$coefficients[3,3]`**)
+Disapp overall   | `r summary(wheelModelDisapp)$coefficients[1,1]` (**`r summary(wheelModelDisapp)$coefficients[1,3]`**) | `r summary(wheelModelDisapp)$coefficients[2,1]` (**`r summary(wheelModelDisapp)$coefficients[2,3]`**)        | `r summary(wheelModelDisapp)$coefficients[3,1]` (**`r summary(wheelModelDisapp)$coefficients[3,3]`**)
+Regret overall   | `r summary(wheelModelRegret)$coefficients[1,1]` (**`r summary(wheelModelRegret)$coefficients[1,3]`**) | `r summary(wheelModelRegret)$coefficients[2,1]` (**`r summary(wheelModelRegret)$coefficients[2,3]`**)        | `r summary(wheelModelRegret)$coefficients[3,1]` (**`r summary(wheelModelRegret)$coefficients[3,3]`**)
+
+
+
+```{r v61-overall-emotion-model-stats, echo=FALSE}
+# Stat tests: use a restricted-full model comparison across all emotions.
+v61data_melt = melt(v61data, id.vars = c("workerid", "spinnerID_1", "spinnerID_2"),
+                    measure.vars = c("happy1", "content1", "relief1", "sad1", "disapp1", "regret1"),
+                    variable.name = "Emotion", value.name="Emotion1")
+v61data_melt$Emotion2 = melt(v61data, id.vars = c("workerid", "spinnerID_1", "spinnerID_2"),
+                    measure.vars = c("happy2", "content2", "relief2", "sad2", "disapp2", "regret2"),
+                    variable.name = "Emotion", value.name="Emotion2")$Emotion2
+v61data_melt$Emotion3 = melt(v61data, id.vars = c("workerid", "spinnerID_1", "spinnerID_2"),
+                    measure.vars = c("happy3", "content3", "relief3", "sad3", "disapp3", "regret3"),
+                    variable.name = "Emotion", value.name="Emotion3")$Emotion3
+v61data_melt$Emotion = factor(v61data_melt$Emotion, levels = c("happy1", "content1", "relief1",
+                                                               "sad1", "disapp1", "regret1"),
+                              labels = c("Happy", "Content", "Relief", "Sad", "Disapp", "Regret"))
+
+v61data_melt$Emotion12 = v61data_melt$Emotion1 + v61data_melt$Emotion2
+
+wheelModelFull = lmer(Emotion3 ~ (Emotion12 + Emotion2)*Emotion + (1|Emotion) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data_melt)
+# summary(wheelModelFull)
+wheelModelFullr = lmer(Emotion3 ~ (Emotion12)*Emotion + (1|Emotion) + (1|spinnerID_1) + (1|spinnerID_2) + (1|workerid), v61data_melt)
+# summary(wheelModelFullr)
+anova(wheelModelFull, wheelModelFullr)
+
+```
+
