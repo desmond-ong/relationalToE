@@ -20,7 +20,7 @@
 
 \documentclass[10pt,letterpaper]{article}
 
-\usepackage{cogsci}
+%\usepackage{cogsci}
 \usepackage{pslatex}
 \usepackage{apacite}
 
@@ -56,7 +56,7 @@
 %% End sub numbering hypotheses
 
 
-\title{ A relational lay theory of emotion: \\ Making and integrating multiple emotion attributions }
+\title{ fixme: A relational lay theory of emotion: \\ Making and integrating multiple emotion attributions }
  
 \author{{\large \bf Desmond C. Ong}, 
 {\large \bf Jamil Zaki}, 
@@ -78,7 +78,7 @@ abstract text
 Affective cognition; Emotions; Social cognition; Computational Modeling
 \end{abstract}
 
-Intro
+
 
 %you could say that there's simple ``bob feels E" and relational ``bob feels E about X" type emotion attributions, where E is an emotion and X is an event. there are two questions to address: what is the relation between the two types of attribution, and what is the relation between two relational ones, depending on the relation between the events.
 
@@ -97,6 +97,39 @@ Intro
 
 %How does an observer infer that agents (the targets of affective cognition) who spill a cup of coffee, miss the bus, or fall off a bicycle, likely feel similar emotions, such as sadness? One problem that any model of affective cognition must deal with is the combinatorial explosion of outcomes and emotional states that people can experience. It would be both inefficient and impractical for observers to store or retrieve knowledge about the likely affective consequences of every possible situation. We hypothesize that people circumvent this complexity by evaluating situations based on a smaller number of Òactive psychological ingredientsÓ those situations contain. For instance, many emotion-inducing situations share key common features (e.g., the attainment or nonattainment of goals) that consistently produce particular emotions (Barrett, Mesquita, Ochsner, & Gross, 2007; Ellsworth & Scherer, 2003). An individual in a situation can take advantage of this commonality by appraising the situation along a small number of relevant appraisal dimensions: that is, reducing a situation to a low-dimensional set of emotion-relevant features (Ortony, Clore, & Collins, 1988; Schachter & Singer, 1962; Scherer, Schorr, & Johnstone, 2001; Smith & Lazarus, 1993). 
 
+Talk about Moods vs Emotions
+
+Talk about Lay theories
+
+=> how are they integrated?
+
+Talk about applying a formalism.
+
+
+Analyze and maybe include the simultaneous experiment
+
+
+\section{Introduction: Emotions and Moods}
+
+	Emotions form a rich part of our mental lives -- we reason about not only our emotions but also of those around us, using our intuitive or lay theory of emotions (Ong, Zaki, \& Goodman; cites) \cite{Hareli2014}. In particular, we often make two kinds of emotional attributions to those around us: attributions that involve a specified cause (``Michael is feeling happy that he did well in his interview"), as well as more global, general attributions (``Henry is feeling sad"). These two classes of attributions made by naive observers coincide with a similar distinction made by affective scientists and philosophers between ``emotions" and ``moods" \cite{Sizer2000} (james' review, etc). However, there is no reason to think that the naive definitions map cleanly onto the scientific definitions. For instance, lay speakers do not often make a linguistic distinction between emotions and moods: statements like ``Henry is feeling sad" (with no specified cause) and ``Henry is in a melancholic mood" are interchangeable. Indeed, the lay person might not even know what ``affect" means, let alone that there different types of affective states! Yet, it is also important to study the naive theories that lay observers have, since it is those theories (and not scientific theories) that guide the layperson in their daily life. In the sections to follow, I briefly discuss how scientists parse these two distinct classes of affective states, and how we can use that as a starting point to study the corresponding lay conceptualizations of these states.
+
+	Within affective science
+	
+	The layperson has an innate 
+	
+
+
+emotions and moods \cite{Sizer2000} 
+
+propositional attitude theories (griffiths;  not explicitly by barrett, russell)
+% are emotions propositional /attitudes/? that is, is it in the same category as "I believe that X"
+lay theories, attributions using emotions 
+
+
+central role of cognition in emotion (cite barrett, etc)
+-- for emotions
+
+
 
 
 \subsection{Making multiple relational attributions}
@@ -104,24 +137,25 @@ Intro
 What is the relation between two relational attributions? 
 
 \begin{Definition}
-Relational Emotion Attribution is a function $E_R$ that takes the agent $A$ and the event $X$, and returns real-valued numbers corresponding to the intensity of $A$'s emotions. $E_R(A,X)$ returns the emotions attributed to agent $A$ following event $X$.
+A Relational Emotion Attribution is a function $E$ that takes the agent $A$ and the event $X$, and returns real-valued numbers corresponding to the intensity of $A$'s emotions. $E(A,X)$ returns the emotions attributed to agent $A$ following event $X$.
 \end{Definition}
 
-\begin{subhyp}
-\begin{hyp} \label{Hypothesis:NoCrossTalk}
-\textbf{Independence.} Following events X and Y, the emotions attributed to each event would be independent of the features of the other event. That is, $E_R(A,X)$ does not depend on the features of $Y$, and vice versa.
-\end{hyp}
-
-\begin{hyp} \label{Hypothesis:CrossTalk}
-\textbf{No Independence.} Following events X and Y, the emotions attributed to each event would be dependent of the features of the other event. That is, $E_R(A,X)$ would depend on the features of $Y$, and vice versa.
-\end{hyp}
-\end{subhyp}
-
-\subsection{Integrating to give simple emotion attributions}
-What is the relation between relational and simple emotion attribution?
 \begin{Definition}
-Simple Emotion Attribution is a function $E_S$ that takes only the agent $A$ and returns real-valued numbers corresponding to the intensity of $A$'s emotions. $E_S(A)$ returns the current emotions attributed to agent $A$.
+A Mood (or Overall Emotion) Attribution is a function $M$ that takes the agent $A$ and returns real-valued numbers corresponding to the intensity of $A$'s mood. $M(A)$ returns the current emotions attributed to agent $A$.
 \end{Definition}
+
+%\begin{subhyp}
+%\begin{hyp} \label{Hypothesis:NoCrossTalk}
+%\textbf{Independence.} Following events X and Y, the emotions attributed to each event would be independent of the features of the other event. That is, $E_R(A,X)$ does not depend on the features of $Y$, and vice versa.
+%\end{hyp}
+
+%\begin{hyp} \label{Hypothesis:CrossTalk}
+%\textbf{No Independence.} Following events X and Y, the emotions attributed to each event would be dependent of the features of the other event. That is, $E_R(A,X)$ would depend on the features of $Y$, and vice versa.
+%\end{hyp}
+%\end{subhyp}
+
+\subsection{Integrating to give mood attributions}
+What is the relation between relational emotion and mood attribution?
 
 
 %H1: Mood = average
@@ -143,11 +177,8 @@ Simple Emotion Attribution is a function $E_S$ that takes only the agent $A$ and
 
 \begin{itemize}
 \item No Crosstalk: Ps can separate emotions attributed to event X and Y. i.e. $E_R(A,X)$ is independent of $Y$.
-\item Effect of expectations. Even though there's no cross-talk, the mere existence of the second event affects the features of X (removes loss aversion). The existence of $Y$ qualitatively changes $\mathscr{F}(X)$.
-\item No Loss Aversion. In judging emotions across multiple events, people expect no loss aversion.
 \item Temporal order matters. Participants' lay theories are sensitive to the temporal ordering of events: if $X$ happened, then $Y$ happened, $Y$ matters more to overall emotion $E_S(A)$. Agent-recency.
 \item Evidence presentation order matters (observer-recency effect). The order in which participants make attributions also affects: if they first make an attribution to a temporally later event $Y$ then to a temporally earlier event $X$, their judgments about overall emotion $E_S(A)$ would not favor the later event $Y$. The attribution that the participant most recently gave is weighed more.
-
 \end{itemize}
 
 
@@ -219,13 +250,20 @@ Participants played the role of observers and watched characters play a simple g
 
 
 
-\begin{figure}[htb!]
-\includegraphics[width=\columnwidth]{images/paradigmFig2.png}
-\caption{Dependent measures for Experiments 1 and 2. Participants gave emotion attributions along six emotions, 1) following each wheel, and 2) overall.}
-\label{ParadigmFig2}
-\end{figure}
+%\begin{figure}[htb!]
+%\includegraphics[width=\columnwidth]{images/paradigmFig2.png}
+%\caption{Dependent measures for Experiments 1 and 2. Participants gave emotion attributions along six emotions, 1) following each wheel, and 2) overall.}
+%\label{ParadigmFig2}
+%\end{figure}
 
 \subsubsection{Results.}
+
+\begin{figure}[htb!]
+\includegraphics[width=\columnwidth]{images/Expt1SingleDouble.png}
+\caption{ Experiment 1 Results. Single Double.}
+\label{Expt1ResultsSingleDouble}
+\end{figure}
+
 
 First, we modeled each of the relational attributions using features from both events. That is, we fit the crosstalk model for both events $X$ and $Y$:
 \begin{align} \label{RelationalEmotionModel}
@@ -253,14 +291,13 @@ Next, we proceeded to model the overall emotion as a linear combination of the t
 \begin{align} \label{OverallEmotionModel}
 E_S(A) = b_0 + b_1 E_R(A,X) + b_2 E_R(A,Y) + \epsilon
 \end{align}
-Hypothesis \ref{Hypothesis:SimpleAverage} would predict that the weights on the two relational attributions would be similar ($b_1 = b_2$), while Hypothesis \ref{Hypothesis:RecencyWeighted} would predict that the weight on the temporally-later (more recent) attribution would carry more weight ($b_2 > b_1$). The results of the model in Eqn. \ref{OverallEmotionModel}, with additional random effects by subject and wheels, are shown in Figure \ref{Expt1Results2}. The coefficients on the second emotion were consistently higher than those on the first emotion, across all six emotions measured ($\chi^2(6)=278.04, p\ll.001$). The ratio $b_2/b_1$ ranged from 1.42 (for Content) to 2.21 (for Regret), with an average of 1.68; thus, on average the second relational emotion attributed was weighted almost 70\% more than the first relational emotion attributed. These results support Hypothesis \ref{Hypothesis:RecencyWeighted}: observers seem to be weighing recent events more than less-recent events.
+Hypothesis \ref{Hypothesis:SimpleAverage} would predict that the weights on the two relational attributions would be similar ($b_1 = b_2$), while Hypothesis \ref{Hypothesis:RecencyWeighted} would predict that the weight on the temporally-later (more recent) attribution would carry more weight ($b_2 > b_1$). The results of the model in Eqn. \ref{OverallEmotionModel}, with additional random effects by subject and wheels, are shown in Figure \ref{Expt1ResultsOverall}. The coefficients on the second emotion were consistently higher than those on the first emotion, across all six emotions measured ($\chi^2(6)=278.04, p\ll.001$). The ratio $b_2/b_1$ ranged from 1.42 (for Content) to 2.21 (for Regret), with an average of 1.68; thus, on average the second relational emotion attributed was weighted almost 70\% more than the first relational emotion attributed. These results support Hypothesis \ref{Hypothesis:RecencyWeighted}: observers seem to be weighing recent events more than less-recent events.
 
 \begin{figure}[htb!]
 \includegraphics[width=\columnwidth]{images/Expt1OverallEmotion.png}
 \caption{ Experiment 1 Results. Weights on the relational attributions in predicting the overall attribution, with 95\% confidence intervals. The second relational emotion is consistently weighted on average 70\% more than the first relational emotion.}
-\label{Expt1Results2}
+\label{Expt1ResultsOverall}
 \end{figure}
-
 
 
 
@@ -284,7 +321,7 @@ We recruited 150 participants through Amazon's Mechanical Turk and randomly assi
 \end{figure}
 
 
-The procedure is similar to Experiment 1, except that the stick figure character played one wheel at 10am (the \textit{temporally-earlier} wheel), and one wheel at 2pm (the \textit{temporally-later} wheel). The two wheel spins were presented as TV recordings (Fig. \ref{ParadigmFig3}). In the \textit{Congruent} condition, participants first saw the character spin the 10am wheel, then the 2pm wheel. In the \textit{Incongruent} condition, participants first saw the 2pm wheel, then the 10am wheel. In both conditions, similar to Experiment 1, they made attributions following each wheel, and then made an overall attribution (``How does A feel overall immediately after the 2pm spin?").
+The procedure is similar to Experiment 1, except that the character played one wheel at 10am (the \textit{temporally-earlier} wheel), and one wheel at 2pm (the \textit{temporally-later} wheel). The two wheel spins were presented as TV recordings (Fig. \ref{ParadigmFig3}). In the \textit{Congruent} condition, participants first saw the character spin the 10am wheel, then the 2pm wheel. In the \textit{Incongruent} condition, participants first saw the 2pm wheel, then the 10am wheel. In both conditions, similar to Experiment 1, they made attributions following each wheel, and then made an overall attribution after the \textit{temporally-later} wheel (``How does Bob feel overall immediately after the 2pm spin?").
 
 
 
